@@ -10,6 +10,10 @@ def remaining_months(remaining_amount: float, month_payment: float) -> int:
 
 def normalize_status(value: str | None) -> CustomerStatus:
     """يدعم القيم القديمة paid/late للتوافق مع البيانات السابقة."""
+    if value == CustomerStatus.pending.value:
+        return CustomerStatus.pending
+    if value == CustomerStatus.rejected.value:
+        return CustomerStatus.rejected
     if value in (CustomerStatus.active.value, "paid", "late"):
         # late القديمة = متأخرة وليست ملغاة
         return CustomerStatus.active
@@ -26,13 +30,16 @@ def resolve_status(
     stored_status: str | None,
 ) -> CustomerStatus:
     """
+    - الطلبات المعلقة/المرفوضة تبقى كما هي (لا احتساب)
     - إذا اكتمل السداد → مكتملة دائماً
     - إذا كانت ملغاة/غير نشطة → تبقى كذلك
     - غير ذلك → نشطة
     """
+    current = normalize_status(stored_status)
+    if current in (CustomerStatus.pending, CustomerStatus.rejected):
+        return current
     if remaining_amount <= 0:
         return CustomerStatus.completed
-    current = normalize_status(stored_status)
     if current == CustomerStatus.inactive:
         return CustomerStatus.inactive
     return CustomerStatus.active

@@ -11,6 +11,8 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (status) {
+      CustomerStatus.pending => const Color(0xFFC38508),
+      CustomerStatus.rejected => AppTheme.late,
       CustomerStatus.inactive => AppTheme.late,
       CustomerStatus.active => AppTheme.paid,
       CustomerStatus.completed => AppTheme.completed,

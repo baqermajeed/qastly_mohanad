@@ -25,7 +25,11 @@ def _oid(value: str) -> ObjectId:
 
 
 def _customer_due_in_month(doc: dict, month: date) -> float:
-    if doc.get("status") == CustomerStatus.inactive.value:
+    if doc.get("status") in (
+        CustomerStatus.inactive.value,
+        CustomerStatus.pending.value,
+        CustomerStatus.rejected.value,
+    ):
         return 0.0
     months = int(doc.get("months_count") or 0)
     monthly = float(doc.get("monthly_payment") or 0)
@@ -150,7 +154,13 @@ async def _merchant_stats(
     }
 
     customers = await db.customers.find({"merchant_id": merchant_id}).to_list(None)
-    if not customers:
+    counted = [
+        doc
+        for doc in customers
+        if doc.get("status")
+        not in (CustomerStatus.pending.value, CustomerStatus.rejected.value)
+    ]
+    if not counted:
         return empty
 
     total_amounts = 0.0
@@ -158,13 +168,13 @@ async def _merchant_stats(
     platform_amounts = 0.0
     financed_amounts = 0.0
 
-    for doc in customers:
+    for doc in counted:
         total_amounts += float(doc.get("total_amount") or 0)
         bank_amounts += float(doc.get("bank_amount") or 0)
         platform_amounts += float(doc.get("platform_amount") or 0)
         financed_amounts += float(doc.get("financed_amount") or 0)
 
-    customer_ids = [doc["_id"] for doc in customers]
+    customer_ids = [doc["_id"] for doc in counted]
     pay_pipe = [
         {"$match": {"customer_id": {"$in": customer_ids}}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
@@ -174,12 +184,12 @@ async def _merchant_stats(
     dues = await _outstanding_dues(
         db,
         merchant_id,
-        customers,
+        counted,
         created_at=created_at,
     )
 
     return {
-        "customers_count": len(customers),
+        "customers_count": len(counted),
         "total_amounts": round(total_amounts, 2),
         "bank_amounts": round(bank_amounts, 2),
         "platform_amounts": round(platform_amounts, 2),

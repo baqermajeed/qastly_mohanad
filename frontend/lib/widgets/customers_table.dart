@@ -156,7 +156,10 @@ class _CustomerRow extends StatelessWidget {
       case CustomerStatus.completed:
         return const Color(0xFF0E8A61).withValues(alpha: 0.18);
       case CustomerStatus.inactive:
+      case CustomerStatus.rejected:
         return const Color(0xFFE53935).withValues(alpha: 0.16);
+      case CustomerStatus.pending:
+        return const Color(0xFFC38508).withValues(alpha: 0.14);
       case CustomerStatus.active:
         return Colors.transparent;
     }

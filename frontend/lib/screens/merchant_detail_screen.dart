@@ -506,8 +506,14 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
   }
 
   Widget _statsRow() {
-    final activePlans =
-        _plans.where((c) => c.status != CustomerStatus.completed).length;
+    final activePlans = _plans
+        .where(
+          (c) =>
+              c.status != CustomerStatus.completed &&
+              c.status != CustomerStatus.pending &&
+              c.status != CustomerStatus.rejected,
+        )
+        .length;
     final completed =
         _plans.where((c) => c.status == CustomerStatus.completed).length;
 
@@ -853,11 +859,15 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
     final statusLabel = switch (customer.status) {
       CustomerStatus.completed => 'مكتملة',
       CustomerStatus.inactive => 'غير نشطة',
+      CustomerStatus.pending => 'بانتظار الموافقة',
+      CustomerStatus.rejected => 'مرفوضة',
       CustomerStatus.active => 'نشطة',
     };
     final statusColor = switch (customer.status) {
       CustomerStatus.completed => const Color(0xFF0E8A61),
       CustomerStatus.inactive => const Color(0xFFE53935),
+      CustomerStatus.rejected => const Color(0xFFE53935),
+      CustomerStatus.pending => const Color(0xFFC38508),
       CustomerStatus.active => const Color(0xFF1E88C8),
     };
 

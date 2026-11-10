@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/assets.dart';
 import '../core/theme.dart';
 
-enum SidebarNav { home, customers, pay, overdue }
+enum SidebarNav { home, customers, pending, pay, overdue }
 
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
@@ -11,12 +11,14 @@ class AppSidebar extends StatelessWidget {
     required this.active,
     required this.onSelect,
     this.overdueCount = 0,
+    this.pendingCount = 0,
     this.isAdmin = false,
   });
 
   final SidebarNav active;
   final ValueChanged<SidebarNav> onSelect;
   final int overdueCount;
+  final int pendingCount;
   final bool isAdmin;
 
   static const _neon = Color(0xFF00D4FF);
@@ -68,6 +70,14 @@ class AppSidebar extends StatelessWidget {
                     icon: AppAssets.navOverdue,
                     selected: active == SidebarNav.customers,
                     onTap: () => onSelect(SidebarNav.customers),
+                  ),
+                  const SizedBox(height: 14),
+                  _NavItem(
+                    label: 'طلبات الخطط',
+                    icon: AppAssets.navPay,
+                    selected: active == SidebarNav.pending,
+                    badgeCount: pendingCount,
+                    onTap: () => onSelect(SidebarNav.pending),
                   ),
                 ],
                 const Spacer(),

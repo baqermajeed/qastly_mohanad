@@ -117,12 +117,77 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final q = _query.trim().toLowerCase();
     return (_data?.customers ?? const <Customer>[])
         .where((c) {
+          if (c.status == CustomerStatus.pending) return false;
           if (q.isEmpty) return true;
           return c.name.toLowerCase().contains(q) ||
               c.phone.contains(q) ||
               (c.merchantName ?? '').toLowerCase().contains(q);
         })
         .toList();
+  }
+
+  List<Customer> get _pendingCustomers {
+    final q = _query.trim().toLowerCase();
+    return (_data?.customers ?? const <Customer>[])
+        .where((c) => c.status == CustomerStatus.pending)
+        .where((c) {
+          if (q.isEmpty) return true;
+          return c.name.toLowerCase().contains(q) ||
+              c.phone.contains(q) ||
+              (c.merchantName ?? '').toLowerCase().contains(q);
+        })
+        .toList();
+  }
+
+  Future<void> _approve(Customer c) async {
+    try {
+      await widget.api.approveCustomer(c.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تم اعتماد خطة ${c.name}')),
+      );
+      await _load(silent: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  Future<void> _reject(Customer c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('رفض الطلب'),
+        content: Text('رفض طلب خطة الزبون ${c.name}؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.late),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('رفض'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await widget.api.rejectCustomer(c.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تم رفض طلب ${c.name}')),
+      );
+      await _load(silent: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 
   @override
@@ -143,6 +208,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     active: _active,
                     isAdmin: true,
                     overdueCount: 0,
+                    pendingCount: _data?.stats.pendingCount ?? 0,
                     onSelect: (nav) => setState(() => _active = nav),
                   ),
                   Expanded(
@@ -190,18 +256,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       child: RefreshIndicator(
                                         color: AppTheme.soft,
                                         onRefresh: () => _load(silent: true),
-                                        child: _active == SidebarNav.customers
-                                            ? CustomersTable(
-                                                customers: _filteredCustomers,
-                                                onOpen: _openCustomer,
-                                                showMerchant: true,
-                                              )
-                                            : _MerchantsTable(
-                                                merchants: _filteredMerchants,
-                                                onEdit: (m) =>
-                                                    _openAddMerchant(merchant: m),
-                                                onOpen: _openMerchant,
-                                              ),
+                                        child: switch (_active) {
+                                          SidebarNav.customers => CustomersTable(
+                                              customers: _filteredCustomers,
+                                              onOpen: _openCustomer,
+                                              showMerchant: true,
+                                            ),
+                                          SidebarNav.pending => _PendingPlansTable(
+                                              customers: _pendingCustomers,
+                                              onOpen: _openCustomer,
+                                              onApprove: _approve,
+                                              onReject: _reject,
+                                            ),
+                                          _ => _MerchantsTable(
+                                              merchants: _filteredMerchants,
+                                              onEdit: (m) =>
+                                                  _openAddMerchant(merchant: m),
+                                              onOpen: _openMerchant,
+                                            ),
+                                        },
                                       ),
                                     ),
                                   ],
@@ -274,15 +347,38 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   Widget _sectionHeader() {
-    final isCustomers = _active == SidebarNav.customers;
+    final title = switch (_active) {
+      SidebarNav.customers => 'زبائن التجار',
+      SidebarNav.pending => 'طلبات خطط بانتظار الموافقة',
+      _ => 'التجار المشتركين',
+    };
+    final showAddMerchant = _active == SidebarNav.home;
     return Row(
       children: [
         Text(
-          isCustomers ? 'زبائن التجار' : 'التجار المشتركين',
+          title,
           style: AppTheme.text(fontSize: 23, fontWeight: FontWeight.w700),
         ),
+        if (_active == SidebarNav.pending) ...[
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFC38508).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_pendingCustomers.length}',
+              style: AppTheme.text(
+                color: const Color(0xFFC38508),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
         const Spacer(),
-        if (!isCustomers)
+        if (showAddMerchant)
           Material(
             color: AppTheme.soft,
             borderRadius: BorderRadius.circular(16),
@@ -661,6 +757,250 @@ class _MerchantRow extends StatelessWidget {
   }
 
   Widget _cell({required int flex, required Widget child}) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _PendingPlansTable extends StatelessWidget {
+  const _PendingPlansTable({
+    required this.customers,
+    required this.onOpen,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final List<Customer> customers;
+  final ValueChanged<Customer> onOpen;
+  final ValueChanged<Customer> onApprove;
+  final ValueChanged<Customer> onReject;
+
+  static const _headers = <(int, String)>[
+    (4, '#'),
+    (14, 'الزبون'),
+    (12, 'التاجر'),
+    (11, 'الهاتف'),
+    (10, 'المحافظة'),
+    (11, 'المبلغ'),
+    (8, 'الأشهر'),
+    (11, 'القسط الشهري'),
+    (19, 'الإجراء'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    if (customers.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 80),
+          Center(
+            child: Text(
+              'لا توجد طلبات بانتظار الموافقة',
+              style: AppTheme.text(
+                color: AppTheme.basic.withValues(alpha: 0.55),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          height: 56,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF6FB),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              for (final h in _headers)
+                Expanded(
+                  flex: h.$1,
+                  child: Text(
+                    h.$2,
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.separated(
+            itemCount: customers.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final c = customers[index];
+              final cellStyle = AppTheme.text(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              );
+              return Material(
+                color: const Color(0xFFC38508).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  onTap: () => onOpen(c),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        _pCell(
+                          flex: 4,
+                          child: Text(
+                            '${index + 1}',
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 14,
+                          child: Text(
+                            c.name,
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 12,
+                          child: Text(
+                            c.merchantName ?? '—',
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 11,
+                          child: Text(
+                            c.phone,
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 10,
+                          child: Text(
+                            c.governorate,
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 11,
+                          child: Text(
+                            money(c.totalAmount),
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 8,
+                          child: Text(
+                            '${c.monthsCount}',
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 11,
+                          child: Text(
+                            money(c.monthlyPayment),
+                            textAlign: TextAlign.center,
+                            style: cellStyle,
+                          ),
+                        ),
+                        _pCell(
+                          flex: 19,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                height: 34,
+                                child: FilledButton(
+                                  onPressed: () => onApprove(c),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AppTheme.completed,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'اعتماد',
+                                    style: AppTheme.text(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                height: 34,
+                                child: OutlinedButton(
+                                  onPressed: () => onReject(c),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.late,
+                                    side: BorderSide(
+                                      color: AppTheme.late.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'رفض',
+                                    style: AppTheme.text(
+                                      color: AppTheme.late,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _pCell({required int flex, required Widget child}) {
     return Expanded(
       flex: flex,
       child: Padding(

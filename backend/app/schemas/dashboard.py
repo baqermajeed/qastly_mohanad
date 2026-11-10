@@ -9,6 +9,7 @@ class DashboardStats(BaseModel):
     completed_count: int
     remaining_count: int
     late_count: int = 0
+    pending_count: int = 0
     total_amounts: float
     paid_amounts: float
     remaining_amounts: float

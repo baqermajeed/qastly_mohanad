@@ -1,9 +1,13 @@
 import 'merchant.dart';
 
-enum CustomerStatus { active, inactive, completed }
+enum CustomerStatus { pending, active, inactive, completed, rejected }
 
 CustomerStatus statusFromString(String value) {
   switch (value) {
+    case 'pending':
+      return CustomerStatus.pending;
+    case 'rejected':
+      return CustomerStatus.rejected;
     case 'inactive':
     case 'canceled':
     case 'cancelled':
@@ -20,6 +24,10 @@ CustomerStatus statusFromString(String value) {
 
 String statusLabel(CustomerStatus status) {
   switch (status) {
+    case CustomerStatus.pending:
+      return 'بانتظار الموافقة';
+    case CustomerStatus.rejected:
+      return 'مرفوضة';
     case CustomerStatus.active:
       return 'نشطة';
     case CustomerStatus.inactive:
@@ -166,6 +174,7 @@ class DashboardStats {
     required this.totalAmounts,
     required this.paidAmounts,
     required this.remainingAmounts,
+    this.pendingCount = 0,
     this.bankAmounts = 0,
     this.platformAmounts = 0,
     this.financedAmounts = 0,
@@ -176,6 +185,7 @@ class DashboardStats {
   final int completedCount;
   final int remainingCount;
   final int lateCount;
+  final int pendingCount;
   final double totalAmounts;
   final double paidAmounts;
   final double remainingAmounts;
@@ -190,6 +200,7 @@ class DashboardStats {
       completedCount: json['completed_count'] as int,
       remainingCount: json['remaining_count'] as int,
       lateCount: json['late_count'] as int? ?? 0,
+      pendingCount: json['pending_count'] as int? ?? 0,
       totalAmounts: (json['total_amounts'] as num).toDouble(),
       paidAmounts: (json['paid_amounts'] as num).toDouble(),
       remainingAmounts: (json['remaining_amounts'] as num).toDouble(),

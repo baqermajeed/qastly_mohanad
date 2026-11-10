@@ -109,6 +109,77 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
     await _load();
   }
 
+  Future<void> _approvePlan(Customer c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('اعتماد الخطة'),
+        content: Text(
+          'اعتماد خطة الزبون ${c.name}؟ سيتم تفعيلها واحتساب الأقساط من تاريخ الموافقة.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('اعتماد'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final updated = await widget.api.approveCustomer(c.id);
+      if (!mounted) return;
+      setState(() => _customer = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم اعتماد الخطة وتفعيل الاحتساب')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  Future<void> _rejectPlan(Customer c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('رفض الخطة'),
+        content: Text('رفض طلب خطة الزبون ${c.name}؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.late),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('رفض'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final updated = await widget.api.rejectCustomer(c.id);
+      if (!mounted) return;
+      setState(() => _customer = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم رفض طلب الخطة')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
   // ignore: unused_element
   Future<void> _editPayment(Customer c, PaymentRecord payment) async {
     final updated = await showDialog<Customer>(
@@ -430,6 +501,58 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
+                    if (widget.isAdmin &&
+                        c.status == CustomerStatus.pending) ...[
+                      SizedBox(
+                        height: 40,
+                        child: FilledButton.icon(
+                          onPressed: () => _approvePlan(c),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.completed,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.check_rounded, size: 18),
+                          label: Text(
+                            'اعتماد',
+                            style: AppTheme.text(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _rejectPlan(c),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.late,
+                            side: BorderSide(
+                              color: AppTheme.late.withValues(alpha: 0.45),
+                            ),
+                            backgroundColor: AppTheme.late.withValues(alpha: 0.08),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          label: Text(
+                            'رفض',
+                            style: AppTheme.text(
+                              color: AppTheme.late,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     SizedBox(
                       height: 40,
                       child: OutlinedButton.icon(
@@ -1019,7 +1142,10 @@ class _EditCustomerInfoDialogState extends State<_EditCustomerInfoDialog> {
   static const _actionBlue = Color(0xFF1E88C8);
 
   bool get _canEditStatus =>
-      widget.isAdmin && widget.customer.remainingAmount > 0.01;
+      widget.isAdmin &&
+      widget.customer.remainingAmount > 0.01 &&
+      widget.customer.status != CustomerStatus.pending &&
+      widget.customer.status != CustomerStatus.rejected;
 
   bool get _needsPasswordConfirm =>
       _canEditStatus &&

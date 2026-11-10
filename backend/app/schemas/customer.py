@@ -5,9 +5,11 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class CustomerStatus(str, Enum):
+    pending = "pending"
     active = "active"
     inactive = "inactive"
     completed = "completed"
+    rejected = "rejected"
 
 
 def _normalize_digits(value: str) -> str:

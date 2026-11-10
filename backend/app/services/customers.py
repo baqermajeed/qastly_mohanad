@@ -195,13 +195,84 @@ async def create_customer(
         "financed_amount": plan["financed_amount"],
         "monthly_payment": plan["monthly_payment"],
         "first_due_date": datetime.combine(first_due, datetime.min.time()),
-        "status": CustomerStatus.active.value,
+        # الطلب يبقى معلقاً حتى موافقة المدير — لا احتساب أقساط قبل الموافقة
+        "status": CustomerStatus.pending.value,
         "created_at": now,
         "updated_at": now,
     }
     result = await db.customers.insert_one(doc)
     doc["_id"] = result.inserted_id
     return await _serialize_customer(db, doc)  # type: ignore[return-value]
+
+
+async def approve_customer(
+    db: AsyncIOMotorDatabase,
+    customer_id: str,
+    user: UserOut,
+) -> CustomerOut:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="موافقة الخطط متاحة لمدير المنصة فقط")
+
+    oid = _oid(customer_id)
+    existing = await db.customers.find_one({"_id": oid})
+    if not existing:
+        raise HTTPException(status_code=404, detail="طلب الخطة غير موجود")
+    if existing.get("status") != CustomerStatus.pending.value:
+        raise HTTPException(status_code=400, detail="هذه الخطة ليست بانتظار الموافقة")
+
+    now = datetime.now(timezone.utc)
+    reg_date = now.date()
+    first_due = first_due_date(reg_date)
+    result = await db.customers.find_one_and_update(
+        {"_id": oid, "status": CustomerStatus.pending.value},
+        {
+            "$set": {
+                "status": CustomerStatus.active.value,
+                "registration_date": now,
+                "first_due_date": datetime.combine(first_due, datetime.min.time()),
+                "approved_at": now,
+                "approved_by": _oid(user.id),
+                "updated_at": now,
+            }
+        },
+        return_document=True,
+    )
+    if not result:
+        raise HTTPException(status_code=400, detail="تعذر اعتماد الخطة")
+    return await _serialize_customer(db, result)  # type: ignore[return-value]
+
+
+async def reject_customer(
+    db: AsyncIOMotorDatabase,
+    customer_id: str,
+    user: UserOut,
+) -> CustomerOut:
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="رفض الخطط متاح لمدير المنصة فقط")
+
+    oid = _oid(customer_id)
+    existing = await db.customers.find_one({"_id": oid})
+    if not existing:
+        raise HTTPException(status_code=404, detail="طلب الخطة غير موجود")
+    if existing.get("status") != CustomerStatus.pending.value:
+        raise HTTPException(status_code=400, detail="هذه الخطة ليست بانتظار الموافقة")
+
+    now = datetime.now(timezone.utc)
+    result = await db.customers.find_one_and_update(
+        {"_id": oid, "status": CustomerStatus.pending.value},
+        {
+            "$set": {
+                "status": CustomerStatus.rejected.value,
+                "rejected_at": now,
+                "rejected_by": _oid(user.id),
+                "updated_at": now,
+            }
+        },
+        return_document=True,
+    )
+    if not result:
+        raise HTTPException(status_code=400, detail="تعذر رفض الخطة")
+    return await _serialize_customer(db, result)  # type: ignore[return-value]
 
 
 async def list_customers(
@@ -270,6 +341,19 @@ async def update_customer(
         new_status = updates["status"]
         if isinstance(new_status, CustomerStatus):
             updates["status"] = new_status.value
+        if updates["status"] in (
+            CustomerStatus.pending.value,
+            CustomerStatus.rejected.value,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="استخدم مساري الموافقة أو الرفض لإدارة طلبات الخطط",
+            )
+        if existing.get("status") == CustomerStatus.pending.value:
+            raise HTTPException(
+                status_code=400,
+                detail="الخطة بانتظار الموافقة — اعتمدها أو ارفضها أولاً",
+            )
         paid = await _paid_amount(db, oid)
         financed = float(existing.get("financed_amount") or 0)
         remaining = round(max(financed - paid, 0), 2)
@@ -337,17 +421,23 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     customers = await list_customers(db, user)
     merchants = await list_merchants(db) if user.role == "admin" else []
 
-    total_customers = len(customers)
-    completed_count = sum(1 for c in customers if c.status == CustomerStatus.completed)
-    inactive_count = sum(1 for c in customers if c.status == CustomerStatus.inactive)
-    active_count = sum(1 for c in customers if c.status == CustomerStatus.active)
+    counted = [
+        c
+        for c in customers
+        if c.status not in (CustomerStatus.pending, CustomerStatus.rejected)
+    ]
+    pending_count = sum(1 for c in customers if c.status == CustomerStatus.pending)
+    total_customers = len(counted)
+    completed_count = sum(1 for c in counted if c.status == CustomerStatus.completed)
+    inactive_count = sum(1 for c in counted if c.status == CustomerStatus.inactive)
+    active_count = sum(1 for c in counted if c.status == CustomerStatus.active)
     remaining_count = active_count + inactive_count
-    total_amounts = round(sum(c.total_amount for c in customers), 2)
-    paid_amounts = round(sum(c.paid_amount for c in customers), 2)
-    remaining_amounts = round(sum(c.remaining_amount for c in customers), 2)
-    bank_amounts = round(sum(c.bank_amount for c in customers), 2)
-    platform_amounts = round(sum(c.platform_amount for c in customers), 2)
-    financed_amounts = round(sum(c.financed_amount for c in customers), 2)
+    total_amounts = round(sum(c.total_amount for c in counted), 2)
+    paid_amounts = round(sum(c.paid_amount for c in counted), 2)
+    remaining_amounts = round(sum(c.remaining_amount for c in counted), 2)
+    bank_amounts = round(sum(c.bank_amount for c in counted), 2)
+    platform_amounts = round(sum(c.platform_amount for c in counted), 2)
+    financed_amounts = round(sum(c.financed_amount for c in counted), 2)
 
     return DashboardResponse(
         stats=DashboardStats(
@@ -355,6 +445,7 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             completed_count=completed_count,
             remaining_count=remaining_count,
             late_count=inactive_count,
+            pending_count=pending_count,
             total_amounts=total_amounts,
             paid_amounts=paid_amounts,
             remaining_amounts=remaining_amounts,

@@ -214,6 +214,24 @@ class ApiService {
     return Merchant.fromJson(_decode(res));
   }
 
+  Future<Customer> approveCustomer(String id) async {
+    final res = await _client.post(
+      Uri.parse('$_base/api/customers/$id/approve'),
+      headers: _jsonHeaders,
+      body: jsonEncode({}),
+    );
+    return Customer.fromJson(_decode(res));
+  }
+
+  Future<Customer> rejectCustomer(String id) async {
+    final res = await _client.post(
+      Uri.parse('$_base/api/customers/$id/reject'),
+      headers: _jsonHeaders,
+      body: jsonEncode({}),
+    );
+    return Customer.fromJson(_decode(res));
+  }
+
   Future<Customer> updateCustomer({
     required String id,
     String? name,

@@ -74,7 +74,14 @@ class _PayDialogState extends State<PayDialog> {
     try {
       final all = await widget.api.getCustomers();
       final active =
-          all.where((c) => c.status != CustomerStatus.completed).toList();
+          all
+              .where(
+                (c) =>
+                    c.status != CustomerStatus.completed &&
+                    c.status != CustomerStatus.pending &&
+                    c.status != CustomerStatus.rejected,
+              )
+              .toList();
       setState(() {
         _customers = active;
         if (_selected != null) {

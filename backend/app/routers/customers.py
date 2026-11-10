@@ -31,6 +31,22 @@ async def list_customers(
     )
 
 
+@router.post("/{customer_id}/approve", response_model=CustomerOut)
+async def approve_customer(
+    customer_id: str,
+    current_user: UserOut = Depends(auth_service.require_admin),
+) -> CustomerOut:
+    return await customer_service.approve_customer(get_db(), customer_id, current_user)
+
+
+@router.post("/{customer_id}/reject", response_model=CustomerOut)
+async def reject_customer(
+    customer_id: str,
+    current_user: UserOut = Depends(auth_service.require_admin),
+) -> CustomerOut:
+    return await customer_service.reject_customer(get_db(), customer_id, current_user)
+
+
 @router.get("/{customer_id}", response_model=CustomerDetailOut)
 async def get_customer(
     customer_id: str,

@@ -12,6 +12,8 @@ class AppointmentStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
       CustomerStatus.completed => ('مكتملة', AppTheme.statusCompleted),
+      CustomerStatus.pending => ('بانتظار الموافقة', AppTheme.statusWaiting),
+      CustomerStatus.rejected => ('مرفوضة', AppTheme.statusCanceled),
       CustomerStatus.active => ('نشطة', AppTheme.statusWaiting),
       CustomerStatus.inactive => ('غير نشطة', AppTheme.statusCanceled),
     };

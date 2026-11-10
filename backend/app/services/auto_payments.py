@@ -21,6 +21,8 @@ async def apply_due_payments(
                 "$nin": [
                     CustomerStatus.completed.value,
                     CustomerStatus.inactive.value,
+                    CustomerStatus.pending.value,
+                    CustomerStatus.rejected.value,
                 ]
             }
         }
@@ -41,6 +43,8 @@ async def apply_due_payments_for_customer(
     if status in (
         CustomerStatus.completed.value,
         CustomerStatus.inactive.value,
+        CustomerStatus.pending.value,
+        CustomerStatus.rejected.value,
     ):
         return 0
     if not customer.get("first_due_date") or customer.get("financed_amount") is None:

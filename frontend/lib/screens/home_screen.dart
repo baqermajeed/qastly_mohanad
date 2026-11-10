@@ -82,7 +82,15 @@ class _HomeScreenState extends State<HomeScreen> {
       api: widget.api,
       user: widget.auth.user,
     );
-    if (changed == true) await _load(silent: true);
+    if (changed == true) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إرسال طلب الخطة للمدير بانتظار الموافقة'),
+        ),
+      );
+      await _load(silent: true);
+    }
   }
 
   Future<void> _openCustomer(Customer c) async {
@@ -302,6 +310,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _appointmentsHeader() {
     final statusLabelText = switch (_statusFilter) {
+      CustomerStatus.pending => 'بانتظار الموافقة',
+      CustomerStatus.rejected => 'مرفوضة',
       CustomerStatus.inactive => 'غير نشطة',
       CustomerStatus.active => 'نشطة',
       CustomerStatus.completed => 'مكتملة',
@@ -353,6 +363,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text('الكل'),
             ),
             PopupMenuItem<CustomerStatus?>(
+              value: CustomerStatus.pending,
+              child: Text('بانتظار الموافقة'),
+            ),
+            PopupMenuItem<CustomerStatus?>(
               value: CustomerStatus.active,
               child: Text('نشطة'),
             ),
@@ -363,6 +377,10 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuItem<CustomerStatus?>(
               value: CustomerStatus.completed,
               child: Text('مكتملة'),
+            ),
+            PopupMenuItem<CustomerStatus?>(
+              value: CustomerStatus.rejected,
+              child: Text('مرفوضة'),
             ),
           ],
           onSelected: (v) => setState(() => _statusFilter = v),

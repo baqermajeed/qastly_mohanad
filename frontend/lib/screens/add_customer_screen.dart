@@ -620,7 +620,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                       )
                     : const Icon(Icons.save_rounded, size: 20),
                 label: Text(
-                  'حفظ الزبون',
+                  'إرسال للموافقة',
                   style: AppTheme.text(
                     color: Colors.white,
                     fontSize: 15,
