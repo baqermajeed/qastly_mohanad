@@ -56,7 +56,7 @@ export function StatsGrid({ stats, compact = false }: Props) {
       <div
         className={`${compact ? "" : "mx-4 mt-4"} grid animate-pulse grid-cols-1 gap-2`}
       >
-        {Array.from({ length: 7 }).map((_, i) => (
+        {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="h-[68px] rounded-2xl bg-white/70" />
         ))}
       </div>
@@ -99,6 +99,11 @@ export function StatsGrid({ stats, compact = false }: Props) {
       value: `${stats.remaining_count}`,
       tone: "white" as const,
     },
+    {
+      title: "مستحقاتك هذا الشهر",
+      value: money(stats.due_this_month_amount ?? 0),
+      tone: "gold" as const,
+    },
   ];
 
   if (compact) {
@@ -119,8 +124,8 @@ export function StatsGrid({ stats, compact = false }: Props) {
 
   return (
     <div className="mx-4 mt-4 space-y-2">
-      <div className="grid grid-cols-3 gap-2">
-        {items.slice(0, 3).map((item) => (
+      <div className="grid grid-cols-2 gap-2">
+        {items.slice(0, 2).map((item) => (
           <StatCard
             key={item.title}
             title={item.title}
@@ -129,8 +134,18 @@ export function StatsGrid({ stats, compact = false }: Props) {
           />
         ))}
       </div>
-      <div className="grid grid-cols-4 gap-2">
-        {items.slice(3).map((item) => (
+      <div className="grid grid-cols-3 gap-2">
+        {items.slice(2, 5).map((item) => (
+          <StatCard
+            key={item.title}
+            title={item.title}
+            value={item.value}
+            tone={item.tone}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {items.slice(5).map((item) => (
           <StatCard
             key={item.title}
             title={item.title}

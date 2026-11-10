@@ -83,10 +83,20 @@ textarea {
 .header-top {
   position: relative;
   z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) auto;
+}
+
+.header-row {
+  display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
+}
+
+.header-row .user-chip {
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+  margin-inline-end: auto;
 }
 
 .brand-block {
@@ -119,7 +129,7 @@ textarea {
 }
 
 .brand-subtitle {
-  margin-top: 3px;
+  margin-top: 6px;
   font-size: 10px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.72);
@@ -137,10 +147,11 @@ textarea {
   height: 46px;
   padding: 4px 10px 4px 4px;
   border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 999px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 22px rgba(1, 38, 59, 0.18);
-  cursor: pointer;
+  pointer-events: none;
+  user-select: none;
 }
 
 .user-avatar {
@@ -176,13 +187,6 @@ textarea {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.user-caret {
-  display: grid;
-  place-items: center;
-  color: rgba(0, 46, 69, 0.45);
-  flex-shrink: 0;
 }
 
 .menu-btn {
@@ -865,26 +869,32 @@ textarea {
 
 .side-drawer {
   position: fixed;
-  top: 0;
-  bottom: 0;
+  top: 78px;
+  bottom: auto;
   left: auto;
-  right: max(0px, calc((100vw - min(100vw, 430px)) / 2));
-  width: min(86vw, 320px);
-  max-width: 320px;
+  right: max(14px, calc((100vw - min(100vw, 430px)) / 2 + 14px));
+  width: min(86vw, 300px);
+  max-width: 300px;
+  max-height: min(70dvh, 560px);
   background: #fff;
   z-index: 50;
-  padding: 18px 14px 22px;
-  box-shadow: -12px 0 30px rgba(2, 44, 69, 0.22);
-  transform: translate3d(110%, 0, 0);
-  transition: transform 0.24s ease;
-  overflow: hidden;
+  padding: 14px;
+  box-shadow: 0 16px 36px rgba(2, 44, 69, 0.28);
+  transform: translate3d(0, -6px, 0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  overflow: auto;
   display: flex;
   flex-direction: column;
-  border-radius: 18px 0 0 18px;
+  border-radius: 14px;
+  border: 1px solid #e6f1f7;
 }
 
 .side-drawer.is-open {
   transform: translate3d(0, 0, 0);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .field {

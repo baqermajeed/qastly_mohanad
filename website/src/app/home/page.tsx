@@ -242,7 +242,6 @@ export default function HomePage() {
       <MobileHeader
         user={user}
         onMenu={() => setMenuOpen(true)}
-        onProfile={() => setMenuOpen(true)}
       />
       <SearchBar value={queryInput} onChange={setQueryInput} />
 

@@ -398,6 +398,14 @@ class _HomeScreenState extends State<HomeScreen> {
             background: AppTheme.cardTeal,
           ),
         ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: DashboardStatCard(
+            title: 'مستحقاتك هذا الشهر',
+            value: money(stats.dueThisMonthAmount),
+            background: AppTheme.cardGold,
+          ),
+        ),
       ],
     );
   }

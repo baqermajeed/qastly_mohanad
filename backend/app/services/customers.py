@@ -19,6 +19,7 @@ from app.schemas.dashboard import DashboardResponse, DashboardStats
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments, apply_due_payments_for_customer
+from app.services.merchants import dashboard_due_this_month
 from app.services.plan import due_date_for, first_due_date, remaining_months, split_plan
 from app.services.status import as_date, resolve_status, whatsapp_url
 
@@ -545,6 +546,7 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     bank_amounts = round(sum(c.bank_amount for c in counted), 2)
     platform_amounts = round(sum(c.platform_amount for c in counted), 2)
     financed_amounts = round(sum(c.financed_amount for c in counted), 2)
+    due_amount, due_count = await dashboard_due_this_month(db, user)
 
     return DashboardResponse(
         stats=DashboardStats(
@@ -560,6 +562,8 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             platform_amounts=platform_amounts,
             financed_amounts=financed_amounts,
             merchants_count=merchants,
+            due_this_month_amount=due_amount,
+            due_this_month_count=due_count,
         ),
         # الجداول تُجلب عبر endpoints منفصلة مع pagination/فلترة من السيرفر.
         customers=[],

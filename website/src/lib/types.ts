@@ -69,6 +69,8 @@ export type DashboardStats = {
   platform_amounts: number;
   financed_amounts: number;
   merchants_count: number;
+  due_this_month_amount?: number;
+  due_this_month_count?: number;
 };
 
 export type PageResult<T> = {

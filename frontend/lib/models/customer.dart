@@ -200,6 +200,8 @@ class DashboardStats {
     this.platformAmounts = 0,
     this.financedAmounts = 0,
     this.merchantsCount = 0,
+    this.dueThisMonthAmount = 0,
+    this.dueThisMonthCount = 0,
   });
 
   final int totalCustomers;
@@ -214,6 +216,8 @@ class DashboardStats {
   final double platformAmounts;
   final double financedAmounts;
   final int merchantsCount;
+  final double dueThisMonthAmount;
+  final int dueThisMonthCount;
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
     return DashboardStats(
@@ -229,6 +233,9 @@ class DashboardStats {
       platformAmounts: (json['platform_amounts'] as num?)?.toDouble() ?? 0,
       financedAmounts: (json['financed_amounts'] as num?)?.toDouble() ?? 0,
       merchantsCount: json['merchants_count'] as int? ?? 0,
+      dueThisMonthAmount:
+          (json['due_this_month_amount'] as num?)?.toDouble() ?? 0,
+      dueThisMonthCount: json['due_this_month_count'] as int? ?? 0,
     );
   }
 }

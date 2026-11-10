@@ -202,6 +202,42 @@ async def _merchant_stats(
     }
 
 
+async def dashboard_due_this_month(
+    db: AsyncIOMotorDatabase,
+    user: UserOut,
+) -> tuple[float, int]:
+    """مستحقات التاجر الظاهرة في لوحة الإحصائيات (من حساب الباكند)."""
+    if user.role == "merchant":
+        oid = _oid(user.id)
+        doc = await db.users.find_one({"_id": oid})
+        stats = await _merchant_stats(
+            db,
+            oid,
+            created_at=(doc or {}).get("created_at"),
+        )
+        return (
+            float(stats["due_this_month_amount"]),
+            int(stats["due_this_month_count"]),
+        )
+
+    # للمدير: مجموع مستحقات كل التجار غير المؤكدة
+    total = 0.0
+    count = 0
+    cursor = db.users.find({"role": "merchant"})
+    async for merchant in cursor:
+        stats = await _merchant_stats(
+            db,
+            merchant["_id"],
+            created_at=merchant.get("created_at"),
+        )
+        amount = float(stats["due_this_month_amount"])
+        if amount <= 0:
+            continue
+        total += amount
+        count += int(stats["due_this_month_count"])
+    return round(total, 2), count
+
+
 async def serialize_merchant(db: AsyncIOMotorDatabase, doc: dict) -> MerchantOut:
     stats = await _merchant_stats(
         db,
