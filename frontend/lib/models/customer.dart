@@ -37,6 +37,20 @@ String statusLabel(CustomerStatus status) {
   }
 }
 
+int _resolveRemainingMonths({
+  required double remainingAmount,
+  required int monthsCount,
+  required int paymentsCount,
+  required int apiRemainingMonths,
+}) {
+  if (remainingAmount <= 0) return 0;
+  final fromPayments = monthsCount - paymentsCount;
+  if (fromPayments >= 0) {
+    return fromPayments.clamp(0, monthsCount);
+  }
+  return apiRemainingMonths.clamp(0, monthsCount);
+}
+
 class PaymentRecord {
   PaymentRecord({
     required this.id,
@@ -148,7 +162,14 @@ class Customer {
       monthlyPayment: (json['monthly_payment'] as num).toDouble(),
       paidAmount: (json['paid_amount'] as num).toDouble(),
       remainingAmount: (json['remaining_amount'] as num).toDouble(),
-      remainingMonths: json['remaining_months'] as int,
+      // API القديم كان يرجع ceil(مبلغ/قسط) فيصير 37 لخطة 36 بسبب تقريب القسط.
+      // الأشهر المتبقية = الأقساط غير المدفوعة، وبحد أقصى طول الخطة.
+      remainingMonths: _resolveRemainingMonths(
+        remainingAmount: (json['remaining_amount'] as num).toDouble(),
+        monthsCount: json['months_count'] as int,
+        paymentsCount: json['payments_count'] as int? ?? 0,
+        apiRemainingMonths: json['remaining_months'] as int,
+      ),
       paymentsCount: json['payments_count'] as int? ?? 0,
       firstDueDate: json['first_due_date'] == null
           ? null

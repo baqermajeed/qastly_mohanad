@@ -11,6 +11,19 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "https://qasatly.compassaccuracy.com";
 
+/** يصحّح remaining_months عندما API يرجع ceil خاطئ بسبب تقريب القسط. */
+function normalizeCustomer(customer: Customer): Customer {
+  if (customer.remaining_amount <= 0) {
+    return { ...customer, remaining_months: 0 };
+  }
+  const paid = customer.payments_count ?? 0;
+  const remaining = Math.max(0, customer.months_count - paid);
+  return {
+    ...customer,
+    remaining_months: Math.min(remaining, customer.months_count),
+  };
+}
+
 const TOKEN_KEY = "qasitli_auth_token";
 const USER_KEY = "qasitli_auth_user";
 
@@ -122,7 +135,13 @@ export async function getCustomers(params: CustomersQuery = {}) {
   if (params.date_from) query.set("date_from", params.date_from);
   if (params.date_to) query.set("date_to", params.date_to);
   if (params.exclude_pending) query.set("exclude_pending", "true");
-  return request<PageResult<Customer>>(`/api/customers?${query.toString()}`);
+  const page = await request<PageResult<Customer>>(
+    `/api/customers?${query.toString()}`,
+  );
+  return {
+    ...page,
+    items: page.items.map(normalizeCustomer),
+  };
 }
 
 export async function createCustomer(payload: {
@@ -135,14 +154,16 @@ export async function createCustomer(payload: {
   mastercard_number?: string;
   national_id?: string;
 }) {
-  return request<Customer>("/api/customers", {
+  const customer = await request<Customer>("/api/customers", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return normalizeCustomer(customer);
 }
 
 export async function getCustomer(id: string) {
-  return request<Customer>(`/api/customers/${id}`);
+  const customer = await request<Customer>(`/api/customers/${id}`);
+  return normalizeCustomer(customer);
 }
 
 export async function updateCustomer(
@@ -157,8 +178,9 @@ export async function updateCustomer(
     confirm_password?: string;
   },
 ) {
-  return request<Customer>(`/api/customers/${id}`, {
+  const customer = await request<Customer>(`/api/customers/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+  return normalizeCustomer(customer);
 }
