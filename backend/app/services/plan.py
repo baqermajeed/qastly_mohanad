@@ -66,10 +66,29 @@ def installment_amount(
     return round(financed_amount - monthly_payment * (months_count - 1), 2)
 
 
-def remaining_months(remaining_amount: float, month_payment: float) -> int:
-    if remaining_amount <= 0 or month_payment <= 0:
+def remaining_months(
+    remaining_amount: float,
+    month_payment: float,
+    *,
+    months_count: int | None = None,
+    payments_count: int | None = None,
+) -> int:
+    """عدد الأشهر المتبقية للخطة.
+
+    تقريب القسط الشهري (مثلاً 850000/36 → 23611.11) يخلّي
+    remaining/payment أكبر من months_count بجزء ضئيل، وceil يعطي +1 بالغلط.
+    لذلك نعتمد الأقساط غير المدفوعة عند توفرها، ونحدّ النتيجة بطول الخطة.
+    """
+    if remaining_amount <= 0:
         return 0
-    return int(ceil(remaining_amount / month_payment))
+    if months_count is not None and payments_count is not None:
+        return max(0, months_count - payments_count)
+    if month_payment <= 0:
+        return max(0, months_count or 0)
+    months = int(ceil(remaining_amount / month_payment))
+    if months_count is not None:
+        months = min(months, months_count)
+    return months
 
 
 def due_date_for(first_due: date, installment_no: int) -> date:

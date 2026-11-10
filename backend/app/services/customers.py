@@ -85,7 +85,12 @@ async def _serialize_customer(
     months = int(doc["months_count"])
     month_pay = float(doc.get("monthly_payment") or 0)
     remaining = round(max(financed - paid, 0), 2)
-    remaining_m = remaining_months(remaining, month_pay)
+    remaining_m = remaining_months(
+        remaining,
+        month_pay,
+        months_count=months,
+        payments_count=count,
+    )
     customer_status = resolve_status(
         remaining_amount=remaining,
         stored_status=doc.get("status"),
@@ -312,7 +317,6 @@ def _build_customer_query(
                 "$or": [
                     {"name": rx},
                     {"phone": rx},
-                    {"governorate": rx},
                 ]
             }
         )
@@ -338,33 +342,23 @@ async def _collect_customers(
     date_to: date | None = None,
     exclude_pending: bool = False,
 ) -> list[CustomerOut]:
-    # البحث النصي بعد التسلسل ليشمل اسم التاجر أيضاً.
+    # البحث بالاسم أو رقم الهاتف فقط (لا يشمل اسم التاجر).
     query = _build_customer_query(
         user,
         merchant_id=merchant_id,
-        q=None,
+        q=q,
         governorate=governorate,
         date_from=date_from,
         date_to=date_to,
     )
     cursor = db.customers.find(query).sort("created_at", -1)
     customers: list[CustomerOut] = []
-    needle = (q or "").strip().lower()
     async for doc in cursor:
         item = await _serialize_customer(db, doc)
         if exclude_pending and item.status == CustomerStatus.pending:
             continue
         if status_filter is not None and item.status != status_filter:
             continue
-        if needle:
-            merchant_name = (item.merchant_name or "").lower()
-            if not (
-                needle in item.name.lower()
-                or needle in item.phone
-                or needle in item.governorate.lower()
-                or needle in merchant_name
-            ):
-                continue
         customers.append(item)  # type: ignore[arg-type]
     return customers
 

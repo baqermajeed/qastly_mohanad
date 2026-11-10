@@ -4,8 +4,19 @@ from app.schemas.customer import CustomerStatus
 from app.services.plan import remaining_months as plan_remaining_months
 
 
-def remaining_months(remaining_amount: float, month_payment: float) -> int:
-    return plan_remaining_months(remaining_amount, month_payment)
+def remaining_months(
+    remaining_amount: float,
+    month_payment: float,
+    *,
+    months_count: int | None = None,
+    payments_count: int | None = None,
+) -> int:
+    return plan_remaining_months(
+        remaining_amount,
+        month_payment,
+        months_count=months_count,
+        payments_count=payments_count,
+    )
 
 
 def normalize_status(value: str | None) -> CustomerStatus:
