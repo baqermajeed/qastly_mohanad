@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qasatly_mohanad/main.dart';
 import 'package:qasatly_mohanad/services/api_service.dart';
 import 'package:qasatly_mohanad/services/auth_session.dart';
+import 'package:qasatly_mohanad/services/connectivity_monitor.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +17,14 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final api = ApiService();
+    final network = ConnectivityMonitor();
+    final api = ApiService(network: network);
     final auth = AuthSession(api: api);
     await auth.bootstrap();
 
-    await tester.pumpWidget(QasatlyMohanadApp(api: api, auth: auth));
+    await tester.pumpWidget(
+      QasatlyMohanadApp(api: api, auth: auth, network: network),
+    );
     await tester.pump();
     expect(find.text('تسجيل الدخول'), findsOneWidget);
     expect(find.text('دخول'), findsOneWidget);

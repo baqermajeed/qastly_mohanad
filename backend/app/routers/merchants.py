@@ -1,18 +1,29 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.database import get_db
 from app.schemas.merchant import MerchantCreate, MerchantOut, MerchantUpdate
+from app.schemas.pagination import Page
 from app.services import auth as auth_service
 from app.services import merchants as merchant_service
 
 router = APIRouter(prefix="/merchants", tags=["merchants"])
 
 
-@router.get("", response_model=list[MerchantOut])
+@router.get("", response_model=Page[MerchantOut])
 async def list_merchants(
+    q: str | None = Query(default=None),
+    governorate: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     _: object = Depends(auth_service.require_admin),
-) -> list[MerchantOut]:
-    return await merchant_service.list_merchants(get_db())
+) -> Page[MerchantOut]:
+    return await merchant_service.list_merchants(
+        get_db(),
+        q=q,
+        governorate=governorate,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("", response_model=MerchantOut, status_code=201)

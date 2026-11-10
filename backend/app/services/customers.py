@@ -1,5 +1,6 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 import hmac
+import re
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -15,9 +16,9 @@ from app.schemas.customer import (
     PaymentOut,
 )
 from app.schemas.dashboard import DashboardResponse, DashboardStats
+from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments, apply_due_payments_for_customer
-from app.services.merchants import list_merchants
 from app.services.plan import due_date_for, first_due_date, remaining_months, split_plan
 from app.services.status import as_date, resolve_status, whatsapp_url
 
@@ -275,22 +276,130 @@ async def reject_customer(
     return await _serialize_customer(db, result)  # type: ignore[return-value]
 
 
+def _clamp_page(page: int, page_size: int) -> tuple[int, int]:
+    safe_page = max(1, int(page or 1))
+    safe_size = min(max(1, int(page_size or 20)), 100)
+    return safe_page, safe_size
+
+
+def _build_customer_query(
+    user: UserOut,
+    *,
+    merchant_id: str | None = None,
+    q: str | None = None,
+    governorate: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> dict:
+    query: dict = dict(_customer_scope(user, merchant_id))
+    clauses: list[dict] = []
+
+    if governorate and governorate.strip():
+        clauses.append({"governorate": governorate.strip()})
+
+    if date_from is not None or date_to is not None:
+        range_q: dict = {}
+        if date_from is not None:
+            range_q["$gte"] = datetime.combine(date_from, time.min)
+        if date_to is not None:
+            range_q["$lte"] = datetime.combine(date_to, time.max)
+        clauses.append({"registration_date": range_q})
+
+    if q and q.strip():
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+        clauses.append(
+            {
+                "$or": [
+                    {"name": rx},
+                    {"phone": rx},
+                    {"governorate": rx},
+                ]
+            }
+        )
+
+    if not clauses:
+        return query
+    if query:
+        return {"$and": [query, *clauses]}
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
+async def _collect_customers(
+    db: AsyncIOMotorDatabase,
+    user: UserOut,
+    *,
+    status_filter: CustomerStatus | None = None,
+    merchant_id: str | None = None,
+    q: str | None = None,
+    governorate: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    exclude_pending: bool = False,
+) -> list[CustomerOut]:
+    # البحث النصي بعد التسلسل ليشمل اسم التاجر أيضاً.
+    query = _build_customer_query(
+        user,
+        merchant_id=merchant_id,
+        q=None,
+        governorate=governorate,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    cursor = db.customers.find(query).sort("created_at", -1)
+    customers: list[CustomerOut] = []
+    needle = (q or "").strip().lower()
+    async for doc in cursor:
+        item = await _serialize_customer(db, doc)
+        if exclude_pending and item.status == CustomerStatus.pending:
+            continue
+        if status_filter is not None and item.status != status_filter:
+            continue
+        if needle:
+            merchant_name = (item.merchant_name or "").lower()
+            if not (
+                needle in item.name.lower()
+                or needle in item.phone
+                or needle in item.governorate.lower()
+                or needle in merchant_name
+            ):
+                continue
+        customers.append(item)  # type: ignore[arg-type]
+    return customers
+
+
 async def list_customers(
     db: AsyncIOMotorDatabase,
     user: UserOut,
     *,
     status_filter: CustomerStatus | None = None,
     merchant_id: str | None = None,
-) -> list[CustomerOut]:
+    q: str | None = None,
+    governorate: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    exclude_pending: bool = False,
+    page: int = 1,
+    page_size: int = 20,
+) -> Page[CustomerOut]:
     await apply_due_payments(db)
-    query = _customer_scope(user, merchant_id)
-    cursor = db.customers.find(query).sort("created_at", -1)
-    customers: list[CustomerOut] = []
-    async for doc in cursor:
-        item = await _serialize_customer(db, doc)
-        if status_filter is None or item.status == status_filter:
-            customers.append(item)  # type: ignore[arg-type]
-    return customers
+    page, page_size = _clamp_page(page, page_size)
+    customers = await _collect_customers(
+        db,
+        user,
+        status_filter=status_filter,
+        merchant_id=merchant_id,
+        q=q,
+        governorate=governorate,
+        date_from=date_from,
+        date_to=date_to,
+        exclude_pending=exclude_pending,
+    )
+    total = len(customers)
+    start = (page - 1) * page_size
+    items = customers[start : start + page_size]
+    return Page.from_items(items, total=total, page=page, page_size=page_size)
 
 
 async def get_customer(
@@ -418,8 +527,12 @@ async def delete_customer(
 
 async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardResponse:
     await apply_due_payments(db)
-    customers = await list_customers(db, user)
-    merchants = await list_merchants(db) if user.role == "admin" else []
+    customers = await _collect_customers(db, user)
+    merchants = (
+        int(await db.users.count_documents({"role": "merchant"}))
+        if user.role == "admin"
+        else 0
+    )
 
     counted = [
         c
@@ -452,9 +565,10 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             bank_amounts=bank_amounts,
             platform_amounts=platform_amounts,
             financed_amounts=financed_amounts,
-            merchants_count=len(merchants),
+            merchants_count=merchants,
         ),
-        customers=customers,
-        merchants=merchants,
+        # الجداول تُجلب عبر endpoints منفصلة مع pagination/فلترة من السيرفر.
+        customers=[],
+        merchants=[],
         role=user.role,
     )

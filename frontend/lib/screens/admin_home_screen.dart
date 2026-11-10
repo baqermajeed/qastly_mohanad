@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +8,7 @@ import '../core/assets.dart';
 import '../core/theme.dart';
 import '../models/customer.dart';
 import '../models/merchant.dart';
+import '../models/page_result.dart';
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
 import '../utils/format.dart';
@@ -13,6 +16,7 @@ import '../widgets/app_sidebar.dart';
 import '../widgets/customers_table.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/home_header.dart';
+import '../widgets/infinite_scroll.dart';
 import 'add_merchant_screen.dart';
 import 'customer_detail_screen.dart';
 import 'merchant_detail_screen.dart';
@@ -28,12 +32,28 @@ class AdminHomeScreen extends StatefulWidget {
 }
 
 class _AdminHomeScreenState extends State<AdminHomeScreen> {
-  DashboardData? _data;
+  static const _pageSize = 20;
+
+  DashboardStats? _stats;
+  PageResult<Merchant> _merchants = PageResult.empty(pageSize: _pageSize);
+  PageResult<Customer> _customers = PageResult.empty(pageSize: _pageSize);
+  PageResult<Customer> _pending = PageResult.empty(pageSize: _pageSize);
   bool _loading = true;
+  bool _tableLoading = false;
+  bool _loadingMore = false;
   String? _error;
   final _searchController = TextEditingController();
   String _query = '';
   SidebarNav _active = SidebarNav.home;
+  Timer? _searchDebounce;
+
+  PageResult<dynamic> get _activePage => switch (_active) {
+        SidebarNav.customers => _customers,
+        SidebarNav.pending => _pending,
+        _ => _merchants,
+      };
+
+  bool get _hasMoreActive => _activePage.hasNext;
 
   @override
   void initState() {
@@ -43,12 +63,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _load({bool silent = false}) async {
-    final showFullLoading = !silent || _data == null;
+    final showFullLoading = !silent || _stats == null;
     if (showFullLoading) {
       setState(() {
         _loading = true;
@@ -56,10 +77,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       });
     }
     try {
-      final data = await widget.api.getDashboard();
+      final statsFuture = widget.api.getDashboard();
+      final tableFuture = _fetchActiveTable(page: 1, append: false);
+      final data = await statsFuture;
+      await tableFuture;
       if (!mounted) return;
       setState(() {
-        _data = data;
+        _stats = data.stats;
+        _loadingMore = false;
         _error = null;
       });
     } catch (e) {
@@ -68,6 +93,94 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     } finally {
       if (mounted && showFullLoading) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _fetchActiveTable({
+    required int page,
+    required bool append,
+  }) async {
+    switch (_active) {
+      case SidebarNav.customers:
+        final result = await widget.api.getCustomers(
+          q: _query,
+          excludePending: true,
+          page: page,
+          pageSize: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          _customers = append ? _customers.appended(result) : result;
+        });
+      case SidebarNav.pending:
+        final result = await widget.api.getCustomers(
+          q: _query,
+          status: CustomerStatus.pending,
+          page: page,
+          pageSize: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          _pending = append ? _pending.appended(result) : result;
+        });
+      default:
+        final result = await widget.api.getMerchants(
+          q: _query,
+          page: page,
+          pageSize: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          _merchants = append ? _merchants.appended(result) : result;
+        });
+    }
+  }
+
+  Future<void> _reloadTable({bool showSpinner = true}) async {
+    if (showSpinner) setState(() => _tableLoading = true);
+    try {
+      await _fetchActiveTable(page: 1, append: false);
+      if (!mounted) return;
+      setState(() {
+        _loadingMore = false;
+        _tableLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _tableLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _loadMoreActive() async {
+    if (_loadingMore || _tableLoading || !_hasMoreActive) return;
+    setState(() => _loadingMore = true);
+    try {
+      await _fetchActiveTable(page: _activePage.page + 1, append: true);
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      final next = value.trim();
+      if (next == _query) return;
+      setState(() => _query = next);
+      _reloadTable();
+    });
+  }
+
+  void _selectNav(SidebarNav nav) {
+    if (_active == nav) return;
+    setState(() => _active = nav);
+    _reloadTable();
   }
 
   Future<void> _openAddMerchant({Merchant? merchant}) async {
@@ -98,45 +211,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
     if (!mounted) return;
     if (changed == true) await _load(silent: true);
-  }
-
-  List<Merchant> get _filteredMerchants {
-    final q = _query.trim().toLowerCase();
-    return (_data?.merchants ?? const <Merchant>[])
-        .where((m) {
-          if (q.isEmpty) return true;
-          return m.fullName.toLowerCase().contains(q) ||
-              m.username.toLowerCase().contains(q) ||
-              m.phone.contains(q) ||
-              m.governorate.toLowerCase().contains(q);
-        })
-        .toList();
-  }
-
-  List<Customer> get _filteredCustomers {
-    final q = _query.trim().toLowerCase();
-    return (_data?.customers ?? const <Customer>[])
-        .where((c) {
-          if (c.status == CustomerStatus.pending) return false;
-          if (q.isEmpty) return true;
-          return c.name.toLowerCase().contains(q) ||
-              c.phone.contains(q) ||
-              (c.merchantName ?? '').toLowerCase().contains(q);
-        })
-        .toList();
-  }
-
-  List<Customer> get _pendingCustomers {
-    final q = _query.trim().toLowerCase();
-    return (_data?.customers ?? const <Customer>[])
-        .where((c) => c.status == CustomerStatus.pending)
-        .where((c) {
-          if (q.isEmpty) return true;
-          return c.name.toLowerCase().contains(q) ||
-              c.phone.contains(q) ||
-              (c.merchantName ?? '').toLowerCase().contains(q);
-        })
-        .toList();
   }
 
   Future<void> _approve(Customer c) async {
@@ -208,8 +282,8 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     active: _active,
                     isAdmin: true,
                     overdueCount: 0,
-                    pendingCount: _data?.stats.pendingCount ?? 0,
-                    onSelect: (nav) => setState(() => _active = nav),
+                    pendingCount: _stats?.pendingCount ?? 0,
+                    onSelect: _selectNav,
                   ),
                   Expanded(
                     child: _loading
@@ -237,14 +311,21 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                   children: [
                                     HomeHeader(
                                       searchController: _searchController,
-                                      customers: _data?.customers ?? [],
+                                      customers: _active == SidebarNav.home
+                                          ? const []
+                                          : (_active == SidebarNav.pending
+                                              ? _pending.items
+                                              : _customers.items),
                                       user: widget.auth.user,
                                       onLogout: widget.auth.logout,
-                                      onQueryChanged: (q) =>
-                                          setState(() => _query = q),
-                                      onSearch: () => setState(
-                                        () => _query = _searchController.text,
-                                      ),
+                                      onQueryChanged: _onSearchChanged,
+                                      onSearch: () {
+                                        _searchDebounce?.cancel();
+                                        final next =
+                                            _searchController.text.trim();
+                                        setState(() => _query = next);
+                                        _reloadTable();
+                                      },
                                       onSelectCustomer: _openCustomer,
                                     ),
                                     const SizedBox(height: 22),
@@ -256,25 +337,57 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       child: RefreshIndicator(
                                         color: AppTheme.soft,
                                         onRefresh: () => _load(silent: true),
-                                        child: switch (_active) {
-                                          SidebarNav.customers => CustomersTable(
-                                              customers: _filteredCustomers,
-                                              onOpen: _openCustomer,
-                                              showMerchant: true,
-                                            ),
-                                          SidebarNav.pending => _PendingPlansTable(
-                                              customers: _pendingCustomers,
-                                              onOpen: _openCustomer,
-                                              onApprove: _approve,
-                                              onReject: _reject,
-                                            ),
-                                          _ => _MerchantsTable(
-                                              merchants: _filteredMerchants,
-                                              onEdit: (m) =>
-                                                  _openAddMerchant(merchant: m),
-                                              onOpen: _openMerchant,
-                                            ),
-                                        },
+                                        child: Stack(
+                                          children: [
+                                            switch (_active) {
+                                              SidebarNav.customers =>
+                                                CustomersTable(
+                                                  customers: _customers.items,
+                                                  onOpen: _openCustomer,
+                                                  showMerchant: true,
+                                                  hasMore: _customers.hasNext,
+                                                  loadingMore: _loadingMore,
+                                                  onLoadMore: _loadMoreActive,
+                                                  total: _customers.total,
+                                                ),
+                                              SidebarNav.pending =>
+                                                _PendingPlansTable(
+                                                  customers: _pending.items,
+                                                  onOpen: _openCustomer,
+                                                  onApprove: _approve,
+                                                  onReject: _reject,
+                                                  hasMore: _pending.hasNext,
+                                                  loadingMore: _loadingMore,
+                                                  onLoadMore: _loadMoreActive,
+                                                  total: _pending.total,
+                                                ),
+                                              _ => _MerchantsTable(
+                                                  merchants: _merchants.items,
+                                                  onEdit: (m) =>
+                                                      _openAddMerchant(
+                                                    merchant: m,
+                                                  ),
+                                                  onOpen: _openMerchant,
+                                                  hasMore: _merchants.hasNext,
+                                                  loadingMore: _loadingMore,
+                                                  onLoadMore: _loadMoreActive,
+                                                  total: _merchants.total,
+                                                ),
+                                            },
+                                            if (_tableLoading)
+                                              const Positioned.fill(
+                                                child: ColoredBox(
+                                                  color: Color(0x66F6FCFF),
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      color: AppTheme.soft,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -291,7 +404,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 
   Widget _statsSection() {
-    final stats = _data?.stats;
+    final stats = _stats;
     if (stats == null) return const SizedBox.shrink();
     return Row(
       children: [
@@ -368,7 +481,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
-              '${_pendingCustomers.length}',
+              '${_stats?.pendingCount ?? _pending.total}',
               style: AppTheme.text(
                 color: const Color(0xFFC38508),
                 fontSize: 13,
@@ -415,11 +528,19 @@ class _MerchantsTable extends StatelessWidget {
     required this.merchants,
     required this.onEdit,
     required this.onOpen,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.onLoadMore,
+    this.total,
   });
 
   final List<Merchant> merchants;
   final ValueChanged<Merchant> onEdit;
   final ValueChanged<Merchant> onOpen;
+  final bool hasMore;
+  final bool loadingMore;
+  final VoidCallback? onLoadMore;
+  final int? total;
 
   static const _headers = <(int, String)>[
     (5, '#'),
@@ -482,34 +603,48 @@ class _MerchantsTable extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: AppTheme.softGlow,
             ),
-            child: merchants.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      const SizedBox(height: 80),
-                      Center(
-                        child: Text(
-                          'لا يوجد تجار بعد — أضف أول تاجر من الزر أعلاه',
-                          style: AppTheme.text(
-                            color: AppTheme.basic.withValues(alpha: 0.6),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+            child: InfiniteScroll(
+              hasMore: hasMore,
+              loadingMore: loadingMore,
+              onLoadMore: onLoadMore,
+              child: merchants.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        Center(
+                          child: Text(
+                            'لا يوجد تجار بعد — أضف أول تاجر من الزر أعلاه',
+                            style: AppTheme.text(
+                              color: AppTheme.basic.withValues(alpha: 0.6),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: merchants.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => _MerchantRow(
-                      index: i + 1,
-                      merchant: merchants[i],
-                      onEdit: () => onEdit(merchants[i]),
-                      onOpen: () => onOpen(merchants[i]),
+                      ],
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: merchants.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) {
+                        if (i >= merchants.length) {
+                          return InfiniteScrollFooter(
+                            loadingMore: loadingMore,
+                            hasMore: hasMore,
+                            total: total,
+                          );
+                        }
+                        return _MerchantRow(
+                          index: i + 1,
+                          merchant: merchants[i],
+                          onEdit: () => onEdit(merchants[i]),
+                          onOpen: () => onOpen(merchants[i]),
+                        );
+                      },
                     ),
-                  ),
+            ),
           ),
         ),
       ],
@@ -773,12 +908,20 @@ class _PendingPlansTable extends StatelessWidget {
     required this.onOpen,
     required this.onApprove,
     required this.onReject,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.onLoadMore,
+    this.total,
   });
 
   final List<Customer> customers;
   final ValueChanged<Customer> onOpen;
   final ValueChanged<Customer> onApprove;
   final ValueChanged<Customer> onReject;
+  final bool hasMore;
+  final bool loadingMore;
+  final VoidCallback? onLoadMore;
+  final int? total;
 
   static const _headers = <(int, String)>[
     (4, '#'),
@@ -842,10 +985,22 @@ class _PendingPlansTable extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: ListView.separated(
-            itemCount: customers.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 6),
-            itemBuilder: (context, index) {
+          child: InfiniteScroll(
+            hasMore: hasMore,
+            loadingMore: loadingMore,
+            onLoadMore: onLoadMore,
+            child: ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: customers.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(height: 6),
+              itemBuilder: (context, index) {
+              if (index >= customers.length) {
+                return InfiniteScrollFooter(
+                  loadingMore: loadingMore,
+                  hasMore: hasMore,
+                  total: total,
+                );
+              }
               final c = customers[index];
               final cellStyle = AppTheme.text(
                 fontSize: 13,
@@ -994,6 +1149,7 @@ class _PendingPlansTable extends StatelessWidget {
                 ),
               );
             },
+            ),
           ),
         ),
       ],

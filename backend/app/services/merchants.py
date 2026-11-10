@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+import re
 import secrets
 
 from bson import ObjectId
@@ -8,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.schemas.auth import UserOut
 from app.schemas.customer import CustomerStatus
 from app.schemas.merchant import MerchantCreate, MerchantOut, MerchantUpdate
+from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments
 from app.services.plan import (
@@ -223,13 +225,46 @@ async def serialize_merchant(db: AsyncIOMotorDatabase, doc: dict) -> MerchantOut
     )
 
 
-async def list_merchants(db: AsyncIOMotorDatabase) -> list[MerchantOut]:
+async def list_merchants(
+    db: AsyncIOMotorDatabase,
+    *,
+    q: str | None = None,
+    governorate: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> Page[MerchantOut]:
     await apply_due_payments(db)
-    cursor = db.users.find({"role": "merchant"}).sort("created_at", -1)
+    safe_page = max(1, int(page or 1))
+    safe_size = min(max(1, int(page_size or 20)), 100)
+
+    query: dict = {"role": "merchant"}
+    clauses: list[dict] = []
+    if governorate and governorate.strip():
+        clauses.append({"governorate": governorate.strip()})
+    if q and q.strip():
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+        clauses.append(
+            {
+                "$or": [
+                    {"full_name": rx},
+                    {"username": rx},
+                    {"phone": rx},
+                    {"governorate": rx},
+                ]
+            }
+        )
+    if clauses:
+        query = {"$and": [query, *clauses]}
+
+    cursor = db.users.find(query).sort("created_at", -1)
     merchants: list[MerchantOut] = []
     async for doc in cursor:
         merchants.append(await serialize_merchant(db, doc))
-    return merchants
+
+    total = len(merchants)
+    start = (safe_page - 1) * safe_size
+    items = merchants[start : start + safe_size]
+    return Page.from_items(items, total=total, page=safe_page, page_size=safe_size)
 
 
 async def create_merchant(db: AsyncIOMotorDatabase, payload: MerchantCreate) -> MerchantOut:

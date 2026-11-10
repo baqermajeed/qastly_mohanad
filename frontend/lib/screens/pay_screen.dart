@@ -72,16 +72,17 @@ class _PayDialogState extends State<PayDialog> {
       _error = null;
     });
     try {
-      final all = await widget.api.getCustomers();
-      final active =
-          all
-              .where(
-                (c) =>
-                    c.status != CustomerStatus.completed &&
-                    c.status != CustomerStatus.pending &&
-                    c.status != CustomerStatus.rejected,
-              )
-              .toList();
+      final activePage = await widget.api.getCustomers(
+        status: CustomerStatus.active,
+        page: 1,
+        pageSize: 100,
+      );
+      final inactivePage = await widget.api.getCustomers(
+        status: CustomerStatus.inactive,
+        page: 1,
+        pageSize: 100,
+      );
+      final active = [...activePage.items, ...inactivePage.items];
       setState(() {
         _customers = active;
         if (_selected != null) {

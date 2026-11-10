@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -5,7 +6,9 @@ import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 import '../models/customer.dart';
 import '../models/merchant.dart';
+import '../models/page_result.dart';
 import '../models/user.dart';
+import 'connectivity_monitor.dart';
 
 class ApiException implements Exception {
   ApiException(this.message);
@@ -23,9 +26,14 @@ class LoginResult {
 }
 
 class ApiService {
-  ApiService({http.Client? client}) : _client = client ?? http.Client();
+  ApiService({http.Client? client, ConnectivityMonitor? network})
+      : _client = client ?? http.Client(),
+        _network = network;
+
+  static const Duration _timeout = Duration(seconds: 20);
 
   final http.Client _client;
+  final ConnectivityMonitor? _network;
   String? authToken;
 
   String get _base => AppConstants.apiBaseUrl;
@@ -40,13 +48,15 @@ class ApiService {
     required String username,
     required String password,
   }) async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': username.trim(),
-        'password': password,
-      }),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username.trim(),
+          'password': password,
+        }),
+      ),
     );
     final data = _decode(res);
     return LoginResult(
@@ -56,53 +66,75 @@ class ApiService {
   }
 
   Future<AppUser> getMe() async {
-    final res = await _client.get(
-      Uri.parse('$_base/api/auth/me'),
-      headers: _jsonHeaders,
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/auth/me'),
+        headers: _jsonHeaders,
+      ),
     );
     return AppUser.fromJson(_decode(res));
   }
 
   Future<void> logout() async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/auth/logout'),
-      headers: _jsonHeaders,
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/auth/logout'),
+        headers: _jsonHeaders,
+      ),
     );
     if (res.statusCode >= 200 && res.statusCode < 300) return;
     _decode(res);
   }
 
   Future<DashboardData> getDashboard() async {
-    final res = await _client.get(
-      Uri.parse('$_base/api/dashboard'),
-      headers: _jsonHeaders,
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/dashboard'),
+        headers: _jsonHeaders,
+      ),
     );
     return DashboardData.fromJson(_decode(res));
   }
 
-  Future<List<Customer>> getCustomers({
+  Future<PageResult<Customer>> getCustomers({
     CustomerStatus? status,
     String? merchantId,
+    String? q,
+    String? governorate,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    bool excludePending = false,
+    int page = 1,
+    int pageSize = 20,
   }) async {
     final params = <String, String>{
+      'page': '$page',
+      'page_size': '$pageSize',
       if (status != null) 'status': status.name,
       if (merchantId != null && merchantId.isNotEmpty) 'merchant_id': merchantId,
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      if (governorate != null && governorate.trim().isNotEmpty)
+        'governorate': governorate.trim(),
+      if (dateFrom != null) 'date_from': _dateParam(dateFrom),
+      if (dateTo != null) 'date_to': _dateParam(dateTo),
+      if (excludePending) 'exclude_pending': 'true',
     };
-    final query = params.isEmpty
-        ? ''
-        : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
-    final res = await _client.get(
-      Uri.parse('$_base/api/customers$query'),
-      headers: _jsonHeaders,
+    final query = _query(params);
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/customers$query'),
+        headers: _jsonHeaders,
+      ),
     );
-    final list = _decodeList(res);
-    return list.map(Customer.fromJson).toList();
+    return PageResult.fromJson(_decode(res), Customer.fromJson);
   }
 
   Future<Customer> getCustomer(String id) async {
-    final res = await _client.get(
-      Uri.parse('$_base/api/customers/$id'),
-      headers: _jsonHeaders,
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/customers/$id'),
+        headers: _jsonHeaders,
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
@@ -128,21 +160,47 @@ class ApiService {
       if (mastercardNumber != null) 'mastercard_number': mastercardNumber,
       if (nationalId != null) 'national_id': nationalId,
     };
-    final res = await _client.post(
-      Uri.parse('$_base/api/customers'),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/customers'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
 
-  Future<List<Merchant>> getMerchants() async {
-    final res = await _client.get(
-      Uri.parse('$_base/api/merchants'),
-      headers: _jsonHeaders,
+  Future<PageResult<Merchant>> getMerchants({
+    String? q,
+    String? governorate,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final params = <String, String>{
+      'page': '$page',
+      'page_size': '$pageSize',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      if (governorate != null && governorate.trim().isNotEmpty)
+        'governorate': governorate.trim(),
+    };
+    final query = _query(params);
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/merchants$query'),
+        headers: _jsonHeaders,
+      ),
     );
-    final list = _decodeList(res);
-    return list.map(Merchant.fromJson).toList();
+    return PageResult.fromJson(_decode(res), Merchant.fromJson);
+  }
+
+  Future<Merchant> getMerchant(String id) async {
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/merchants/$id'),
+        headers: _jsonHeaders,
+      ),
+    );
+    return Merchant.fromJson(_decode(res));
   }
 
   Future<Merchant> createMerchant({
@@ -156,29 +214,33 @@ class ApiService {
     required double bankPercent,
     required double platformPercent,
   }) async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/merchants'),
-      headers: _jsonHeaders,
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-        'full_name': fullName,
-        'phone': phone,
-        'governorate': governorate,
-        'address': address,
-        'master_card': masterCard,
-        'bank_percent': bankPercent,
-        'platform_percent': platformPercent,
-      }),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/merchants'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'full_name': fullName,
+          'phone': phone,
+          'governorate': governorate,
+          'address': address,
+          'master_card': masterCard,
+          'bank_percent': bankPercent,
+          'platform_percent': platformPercent,
+        }),
+      ),
     );
     return Merchant.fromJson(_decode(res));
   }
 
   Future<Merchant> confirmMerchantDues(String id) async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/merchants/$id/confirm-dues'),
-      headers: _jsonHeaders,
-      body: jsonEncode({}),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/merchants/$id/confirm-dues'),
+        headers: _jsonHeaders,
+        body: jsonEncode({}),
+      ),
     );
     return Merchant.fromJson(_decode(res));
   }
@@ -206,28 +268,34 @@ class ApiService {
       if (platformPercent != null) 'platform_percent': platformPercent,
       if (active != null) 'active': active,
     };
-    final res = await _client.patch(
-      Uri.parse('$_base/api/merchants/$id'),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
+    final res = await _send(
+      () => _client.patch(
+        Uri.parse('$_base/api/merchants/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
     );
     return Merchant.fromJson(_decode(res));
   }
 
   Future<Customer> approveCustomer(String id) async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/customers/$id/approve'),
-      headers: _jsonHeaders,
-      body: jsonEncode({}),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/customers/$id/approve'),
+        headers: _jsonHeaders,
+        body: jsonEncode({}),
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
 
   Future<Customer> rejectCustomer(String id) async {
-    final res = await _client.post(
-      Uri.parse('$_base/api/customers/$id/reject'),
-      headers: _jsonHeaders,
-      body: jsonEncode({}),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/customers/$id/reject'),
+        headers: _jsonHeaders,
+        body: jsonEncode({}),
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
@@ -252,10 +320,12 @@ class ApiService {
       if (confirmPassword != null && confirmPassword.isNotEmpty)
         'confirm_password': confirmPassword,
     };
-    final res = await _client.patch(
-      Uri.parse('$_base/api/customers/$id'),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
+    final res = await _send(
+      () => _client.patch(
+        Uri.parse('$_base/api/customers/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
@@ -275,10 +345,12 @@ class ApiService {
       if (note != null && note.isNotEmpty) 'note': note,
       if (method != null) 'method': method,
     };
-    final res = await _client.post(
-      Uri.parse('$_base/api/payments'),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/payments'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
     );
     return Customer.fromJson(_decode(res));
   }
@@ -297,26 +369,65 @@ class ApiService {
       if (note != null) 'note': note,
       if (method != null) 'method': method,
     };
-    final res = await _client.patch(
-      Uri.parse('$_base/api/payments/$paymentId'),
-      headers: _jsonHeaders,
-      body: jsonEncode(body),
+    final res = await _send(
+      () => _client.patch(
+        Uri.parse('$_base/api/payments/$paymentId'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
     );
     return Customer.fromJson(_decode(res));
+  }
+
+  Future<http.Response> _send(Future<http.Response> Function() request) async {
+    try {
+      final res = await request().timeout(_timeout);
+      _network?.markServerReachable();
+      return res;
+    }     on TimeoutException {
+      _network?.markServerUnreachable();
+      throw ApiException('انتهت مهلة الاتصال بالخادم');
+    } on http.ClientException {
+      _network?.markServerUnreachable();
+      throw ApiException('تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى');
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      if (_looksLikeNetworkFailure(e)) {
+        _network?.markServerUnreachable();
+        throw ApiException(
+          'تعذر الاتصال بالخادم. تحقق من الإنترنت وحاول مرة أخرى',
+        );
+      }
+      rethrow;
+    }
+  }
+
+  bool _looksLikeNetworkFailure(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('socket') ||
+        text.contains('failed host lookup') ||
+        text.contains('connection') ||
+        text.contains('network') ||
+        text.contains('timed out');
+  }
+
+  String _dateParam(DateTime value) {
+    final d = DateTime(value.year, value.month, value.day);
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return '${d.year}-$mm-$dd';
+  }
+
+  String _query(Map<String, String> params) {
+    if (params.isEmpty) return '';
+    return '?${params.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
   }
 
   Map<String, dynamic> _decode(http.Response res) {
     final decoded = jsonDecode(utf8.decode(res.bodyBytes));
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return decoded as Map<String, dynamic>;
-    }
-    throw ApiException(_extractError(decoded, res.statusCode));
-  }
-
-  List<Map<String, dynamic>> _decodeList(http.Response res) {
-    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return (decoded as List<dynamic>).cast<Map<String, dynamic>>();
     }
     throw ApiException(_extractError(decoded, res.statusCode));
   }

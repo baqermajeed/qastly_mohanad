@@ -1,8 +1,11 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 
 from app.database import get_db
 from app.schemas.auth import UserOut
 from app.schemas.customer import CustomerCreate, CustomerDetailOut, CustomerOut, CustomerStatus, CustomerUpdate
+from app.schemas.pagination import Page
 from app.services import auth as auth_service
 from app.services import customers as customer_service
 
@@ -17,17 +20,31 @@ async def create_customer(
     return await customer_service.create_customer(get_db(), payload, current_user)
 
 
-@router.get("", response_model=list[CustomerOut])
+@router.get("", response_model=Page[CustomerOut])
 async def list_customers(
     status: CustomerStatus | None = Query(default=None),
     merchant_id: str | None = Query(default=None),
+    q: str | None = Query(default=None),
+    governorate: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    exclude_pending: bool = Query(default=False),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     current_user: UserOut = Depends(auth_service.get_current_user),
-) -> list[CustomerOut]:
+) -> Page[CustomerOut]:
     return await customer_service.list_customers(
         get_db(),
         current_user,
         status_filter=status,
         merchant_id=merchant_id,
+        q=q,
+        governorate=governorate,
+        date_from=date_from,
+        date_to=date_to,
+        exclude_pending=exclude_pending,
+        page=page,
+        page_size=page_size,
     )
 
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../models/customer.dart';
 import '../services/api_service.dart';
 import '../utils/app_dialog.dart';
 import '../utils/format.dart';
+import '../widgets/infinite_scroll.dart';
 
 Future<void> showOverdueDialog(
   BuildContext context, {
@@ -35,10 +37,16 @@ class _OverdueDialogState extends State<OverdueDialog> {
   final _search = TextEditingController();
   List<Customer> _customers = [];
   bool _loading = true;
+  bool _loadingMore = false;
   String? _error;
   String _query = '';
-  int _page = 0;
-  static const _pageSize = 5;
+  int _page = 1;
+  int _total = 0;
+  int _pages = 0;
+  static const _pageSize = 10;
+  Timer? _searchDebounce;
+
+  bool get _hasMore => _page < _pages;
 
   static const _headerBlue = Color(0xFFD7EEF8);
   static const _fieldBorder = Color(0xFFD5E8F2);
@@ -56,53 +64,74 @@ class _OverdueDialogState extends State<OverdueDialog> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final list = await widget.api.getCustomers(status: CustomerStatus.inactive);
+  Future<void> _load({bool reset = true}) async {
+    if (reset) {
       setState(() {
-        _customers = list;
-        _page = 0;
+        _loading = true;
+        _error = null;
+        _loadingMore = false;
+      });
+    }
+    try {
+      final result = await widget.api.getCustomers(
+        status: CustomerStatus.inactive,
+        q: _query,
+        page: 1,
+        pageSize: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _customers = result.items;
+        _page = result.page;
+        _total = result.total;
+        _pages = result.pages;
+        _loadingMore = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted && reset) setState(() => _loading = false);
     }
   }
 
-  List<Customer> get _filtered {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return _customers;
-    return _customers
-        .where(
-          (c) =>
-              c.name.toLowerCase().contains(q) ||
-              c.phone.contains(q) ||
-              c.governorate.toLowerCase().contains(q),
-        )
-        .toList();
+  Future<void> _loadMore() async {
+    if (_loadingMore || _loading || !_hasMore) return;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await widget.api.getCustomers(
+        status: CustomerStatus.inactive,
+        q: _query,
+        page: _page + 1,
+        pageSize: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _customers = [..._customers, ...result.items];
+        _page = result.page;
+        _total = result.total;
+        _pages = result.pages;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
   }
 
-  List<Customer> get _pageItems {
-    final all = _filtered;
-    final start = _page * _pageSize;
-    if (start >= all.length) return [];
-    final end = (start + _pageSize).clamp(0, all.length);
-    return all.sublist(start, end);
-  }
-
-  int get _pageCount {
-    final n = _filtered.length;
-    if (n == 0) return 1;
-    return (n / _pageSize).ceil();
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      final next = value.trim();
+      if (next == _query) return;
+      setState(() => _query = next);
+      _load(reset: true);
+    });
   }
 
   int _paidInstallments(Customer c) {
@@ -178,8 +207,14 @@ class _OverdueDialogState extends State<OverdueDialog> {
         ..writeln(_xlsCell('تاريخ الاستحقاق'))
         ..writeln('</tr>');
 
-      for (var i = 0; i < _filtered.length; i++) {
-        final c = _filtered[i];
+      final export = await widget.api.getCustomers(
+        status: CustomerStatus.inactive,
+        q: _query,
+        page: 1,
+        pageSize: 100,
+      );
+      for (var i = 0; i < export.items.length; i++) {
+        final c = export.items[i];
         buffer
           ..writeln('<tr>')
           ..writeln(_xlsCell('${i + 1}'))
@@ -409,10 +444,7 @@ class _OverdueDialogState extends State<OverdueDialog> {
                 child: TextField(
                   controller: _search,
                   textAlign: TextAlign.right,
-                  onChanged: (v) => setState(() {
-                    _query = v;
-                    _page = 0;
-                  }),
+                  onChanged: _onSearchChanged,
                   style: AppTheme.text(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -460,7 +492,7 @@ class _OverdueDialogState extends State<OverdueDialog> {
   }
 
   Widget _buildTable() {
-    if (_filtered.isEmpty) {
+    if (_customers.isEmpty) {
       return Center(
         child: Text(
           'لا توجد خطط غير نشطة حالياً',
@@ -472,8 +504,7 @@ class _OverdueDialogState extends State<OverdueDialog> {
       );
     }
 
-    final items = _pageItems;
-    final startIndex = _page * _pageSize;
+    final items = _customers;
 
     return Container(
       decoration: BoxDecoration(
@@ -486,11 +517,23 @@ class _OverdueDialogState extends State<OverdueDialog> {
         children: [
           _tableHeader(),
           Expanded(
-            child: ListView.builder(
-              itemCount: items.length,
+            child: InfiniteScroll(
+              hasMore: _hasMore,
+              loadingMore: _loadingMore,
+              onLoadMore: _loadMore,
+              child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: items.length + 1,
               itemBuilder: (_, i) {
+                if (i >= items.length) {
+                  return InfiniteScrollFooter(
+                    loadingMore: _loadingMore,
+                    hasMore: _hasMore,
+                    total: _total,
+                  );
+                }
                 final c = items[i];
-                final index = startIndex + i + 1;
+                final index = i + 1;
                 final delay = _delayDays(c);
                 final lateAmt = _lateAmount(c);
                 final due = _dueDate(c);
@@ -692,6 +735,7 @@ class _OverdueDialogState extends State<OverdueDialog> {
                 );
               },
             ),
+            ),
           ),
         ],
       ),
@@ -745,9 +789,8 @@ class _OverdueDialogState extends State<OverdueDialog> {
   }
 
   Widget _buildFooter() {
-    final total = _filtered.length;
-    final from = total == 0 ? 0 : _page * _pageSize + 1;
-    final to = (_page * _pageSize + _pageItems.length).clamp(0, total);
+    final total = _total;
+    final shown = _customers.length;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -761,7 +804,7 @@ class _OverdueDialogState extends State<OverdueDialog> {
           SizedBox(
             height: 44,
             child: FilledButton.icon(
-              onPressed: _filtered.isEmpty ? null : _exportExcel,
+              onPressed: total == 0 ? null : _exportExcel,
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0F6B5C),
                 foregroundColor: Colors.white,
@@ -781,10 +824,8 @@ class _OverdueDialogState extends State<OverdueDialog> {
             ),
           ),
           const Spacer(),
-          _pagination(),
-          const Spacer(),
           Text(
-            'عرض $from–$to من أصل $total مريض',
+            total == 0 ? 'لا توجد نتائج' : 'عرض $shown من أصل $total',
             style: AppTheme.text(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -792,78 +833,6 @@ class _OverdueDialogState extends State<OverdueDialog> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _pagination() {
-    final count = _pageCount;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _pageBtn(
-          icon: Icons.chevron_left_rounded,
-          enabled: _page > 0,
-          onTap: () => setState(() => _page--),
-        ),
-        const SizedBox(width: 6),
-        for (var i = 0; i < count && i < 5; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
-          Material(
-            color: _page == i ? _actionBlue : const Color(0xFFEEF5FA),
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              onTap: () => setState(() => _page = i),
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 36,
-                height: 36,
-                child: Center(
-                  child: Text(
-                    '${i + 1}',
-                    style: AppTheme.text(
-                      color: _page == i ? Colors.white : AppTheme.basic,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(width: 6),
-        _pageBtn(
-          icon: Icons.chevron_right_rounded,
-          enabled: _page < count - 1,
-          onTap: () => setState(() => _page++),
-        ),
-      ],
-    );
-  }
-
-  Widget _pageBtn({
-    required IconData icon,
-    required bool enabled,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: const Color(0xFFEEF5FA),
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(
-            icon,
-            size: 20,
-            color: enabled
-                ? AppTheme.basic
-                : AppTheme.basic.withValues(alpha: 0.3),
-          ),
-        ),
       ),
     );
   }

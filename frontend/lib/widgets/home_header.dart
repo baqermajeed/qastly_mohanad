@@ -293,18 +293,8 @@ class _SearchBarState extends State<_SearchBar> {
   }
 
   List<Customer> get _suggestions {
-    final q = _query.trim().toLowerCase();
-    final all = widget.customers;
-    if (q.isEmpty) return all.take(8).toList();
-    return all
-        .where(
-          (c) =>
-              c.name.toLowerCase().contains(q) ||
-              c.phone.contains(q) ||
-              c.governorate.toLowerCase().contains(q),
-        )
-        .take(8)
-        .toList();
+    // النتائج تأتي مفلترة من السيرفر عبر الشاشة الأم.
+    return widget.customers.take(8).toList();
   }
 
   void _syncOverlay() {

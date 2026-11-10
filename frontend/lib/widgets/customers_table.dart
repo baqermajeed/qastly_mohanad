@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../models/customer.dart';
 import '../utils/format.dart';
 import 'appointment_status_chip.dart';
+import 'infinite_scroll.dart';
 
 class CustomersTable extends StatelessWidget {
   const CustomersTable({
@@ -15,11 +16,19 @@ class CustomersTable extends StatelessWidget {
     required this.customers,
     required this.onOpen,
     this.showMerchant = false,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.onLoadMore,
+    this.total,
   });
 
   final List<Customer> customers;
   final ValueChanged<Customer> onOpen;
   final bool showMerchant;
+  final bool hasMore;
+  final bool loadingMore;
+  final VoidCallback? onLoadMore;
+  final int? total;
 
   List<(int, String)> get _headers => [
         (5, '#'),
@@ -71,34 +80,48 @@ class CustomersTable extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               boxShadow: AppTheme.softGlow,
             ),
-            child: customers.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      const SizedBox(height: 80),
-                      Center(
-                        child: Text(
-                          'لا يوجد زبائن بعد',
-                          style: AppTheme.text(
-                            color: AppTheme.basic.withValues(alpha: 0.6),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+            child: InfiniteScroll(
+              hasMore: hasMore,
+              loadingMore: loadingMore,
+              onLoadMore: onLoadMore,
+              child: customers.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        Center(
+                          child: Text(
+                            'لا يوجد زبائن بعد',
+                            style: AppTheme.text(
+                              color: AppTheme.basic.withValues(alpha: 0.6),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    itemCount: customers.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, i) => _CustomerRow(
-                      index: i + 1,
-                      customer: customers[i],
-                      onOpen: () => onOpen(customers[i]),
-                      showMerchant: showMerchant,
+                      ],
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: customers.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) {
+                        if (i >= customers.length) {
+                          return InfiniteScrollFooter(
+                            loadingMore: loadingMore,
+                            hasMore: hasMore,
+                            total: total,
+                          );
+                        }
+                        return _CustomerRow(
+                          index: i + 1,
+                          customer: customers[i],
+                          onOpen: () => onOpen(customers[i]),
+                          showMerchant: showMerchant,
+                        );
+                      },
                     ),
-                  ),
+            ),
           ),
         ),
       ],

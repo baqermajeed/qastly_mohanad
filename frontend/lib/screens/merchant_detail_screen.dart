@@ -6,9 +6,11 @@ import '../core/assets.dart';
 import '../core/theme.dart';
 import '../models/customer.dart';
 import '../models/merchant.dart';
+import '../models/page_result.dart';
 import '../services/api_service.dart';
 import '../utils/app_dialog.dart';
 import '../utils/format.dart';
+import '../widgets/infinite_scroll.dart';
 import 'add_merchant_screen.dart';
 import 'customer_detail_screen.dart';
 
@@ -38,12 +40,20 @@ class MerchantDetailDialog extends StatefulWidget {
 }
 
 class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
+  static const _pageSize = 10;
+
   late Merchant _merchant;
-  List<Customer> _plans = [];
+  PageResult<Customer> _plansPage = PageResult.empty(pageSize: _pageSize);
+  int _activePlansCount = 0;
+  int _completedPlansCount = 0;
   bool _loading = true;
+  bool _loadingMorePlans = false;
   bool _confirmingDues = false;
   String? _error;
   bool _changed = false;
+
+  List<Customer> get _plans => _plansPage.items;
+  bool get _hasMorePlans => _plansPage.hasNext;
 
   static const _headerBlue = Color(0xFFD7EEF8);
   static const _fieldBorder = Color(0xFFD5E8F2);
@@ -66,14 +76,41 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
       _error = null;
     });
     try {
-      final merchants = await widget.api.getMerchants();
-      final fresh = merchants.where((m) => m.id == widget.merchant.id);
-      final merchant = fresh.isEmpty ? _merchant : fresh.first;
-      final plans = await widget.api.getCustomers(merchantId: widget.merchant.id);
+      final merchant = await widget.api.getMerchant(widget.merchant.id);
+      final plansFuture = widget.api.getCustomers(
+        merchantId: widget.merchant.id,
+        page: 1,
+        pageSize: _pageSize,
+      );
+      final activeFuture = widget.api.getCustomers(
+        merchantId: widget.merchant.id,
+        status: CustomerStatus.active,
+        page: 1,
+        pageSize: 1,
+      );
+      final inactiveFuture = widget.api.getCustomers(
+        merchantId: widget.merchant.id,
+        status: CustomerStatus.inactive,
+        page: 1,
+        pageSize: 1,
+      );
+      final completedFuture = widget.api.getCustomers(
+        merchantId: widget.merchant.id,
+        status: CustomerStatus.completed,
+        page: 1,
+        pageSize: 1,
+      );
+      final plans = await plansFuture;
+      final active = await activeFuture;
+      final inactive = await inactiveFuture;
+      final completed = await completedFuture;
       if (!mounted) return;
       setState(() {
         _merchant = merchant;
-        _plans = plans;
+        _plansPage = plans;
+        _loadingMorePlans = false;
+        _activePlansCount = active.total + inactive.total;
+        _completedPlansCount = completed.total;
       });
     } catch (e) {
       if (!mounted) return;
@@ -195,6 +232,26 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
     if (!mounted) return;
     _changed = true;
     await _load();
+  }
+
+  Future<void> _loadMorePlans() async {
+    if (_loadingMorePlans || _loading || !_hasMorePlans) return;
+    setState(() => _loadingMorePlans = true);
+    try {
+      final next = await widget.api.getCustomers(
+        merchantId: widget.merchant.id,
+        page: _plansPage.page + 1,
+        pageSize: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _plansPage = _plansPage.appended(next);
+        _loadingMorePlans = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMorePlans = false);
+    }
   }
 
   @override
@@ -506,17 +563,6 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
   }
 
   Widget _statsRow() {
-    final activePlans = _plans
-        .where(
-          (c) =>
-              c.status != CustomerStatus.completed &&
-              c.status != CustomerStatus.pending &&
-              c.status != CustomerStatus.rejected,
-        )
-        .length;
-    final completed =
-        _plans.where((c) => c.status == CustomerStatus.completed).length;
-
     return Row(
       children: [
         Expanded(
@@ -532,7 +578,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
         Expanded(
           child: _statCard(
             label: 'الخطط النشطة',
-            value: '$activePlans',
+            value: '$_activePlansCount',
             icon: Icons.timelapse_rounded,
             background: const Color(0xFFEAF6FB),
             iconColor: const Color(0xFF069BAF),
@@ -542,7 +588,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
         Expanded(
           child: _statCard(
             label: 'الخطط المكتملة',
-            value: '$completed',
+            value: '$_completedPlansCount',
             icon: Icons.check_circle_outline,
             background: const Color(0xFFE7F7EF),
             iconColor: const Color(0xFF0E8A61),
@@ -770,7 +816,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
                 ),
                 const Spacer(),
                 Text(
-                  '${_plans.length} خطة',
+                  '${_plansPage.total} خطة',
                   style: AppTheme.text(
                     color: AppTheme.basic.withValues(alpha: 0.55),
                     fontSize: 13,
@@ -781,29 +827,44 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
             ),
           ),
           _tableHeader(),
-          if (_plans.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
-              child: Center(
-                child: Text(
-                  'لا توجد خطط أقساط لهذا التاجر بعد',
-                  style: AppTheme.text(
-                    color: AppTheme.basic.withValues(alpha: 0.5),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+          SizedBox(
+            height: 320,
+            child: _plans.isEmpty
+                ? Center(
+                    child: Text(
+                      'لا توجد خطط أقساط لهذا التاجر بعد',
+                      style: AppTheme.text(
+                        color: AppTheme.basic.withValues(alpha: 0.5),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )
+                : InfiniteScroll(
+                    hasMore: _hasMorePlans,
+                    loadingMore: _loadingMorePlans,
+                    onLoadMore: _loadMorePlans,
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: 8),
+                      itemCount: _plans.length + 1,
+                      itemBuilder: (_, i) {
+                        if (i >= _plans.length) {
+                          return InfiniteScrollFooter(
+                            loadingMore: _loadingMorePlans,
+                            hasMore: _hasMorePlans,
+                            total: _plansPage.total,
+                          );
+                        }
+                        return _planRow(
+                          index: i + 1,
+                          customer: _plans[i],
+                          striped: i.isOdd,
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            )
-          else
-            ...List.generate(_plans.length, (i) {
-              return _planRow(
-                index: i + 1,
-                customer: _plans[i],
-                striped: i.isOdd,
-              );
-            }),
-          const SizedBox(height: 8),
+          ),
         ],
       ),
     );

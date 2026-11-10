@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../core/assets.dart';
+import '../core/governorates.dart';
 import '../core/theme.dart';
 import '../models/customer.dart';
+import '../models/page_result.dart';
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
+import '../utils/app_dialog.dart';
 import '../utils/format.dart';
 import '../widgets/app_sidebar.dart';
 import '../widgets/customers_table.dart';
@@ -25,17 +30,27 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-enum _DateFilter { all, today, week, month }
+enum _DateFilter { all, today, week, month, custom }
 
 class _HomeScreenState extends State<HomeScreen> {
-  DashboardData? _data;
+  static const _pageSize = 20;
+
+  DashboardStats? _stats;
+  PageResult<Customer> _customers = PageResult.empty(pageSize: _pageSize);
   bool _loading = true;
+  bool _tableLoading = false;
+  bool _loadingMore = false;
   String? _error;
   final _searchController = TextEditingController();
   String _query = '';
   String? _governorateFilter;
   CustomerStatus? _statusFilter;
   _DateFilter _dateFilter = _DateFilter.all;
+  DateTime? _dateFrom;
+  DateTime? _dateTo;
+  Timer? _searchDebounce;
+
+  bool get _hasMoreCustomers => _customers.hasNext;
 
   @override
   void initState() {
@@ -45,14 +60,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
+  (DateTime?, DateTime?) get _activeDateRange {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    switch (_dateFilter) {
+      case _DateFilter.all:
+        return (null, null);
+      case _DateFilter.today:
+        return (today, today);
+      case _DateFilter.week:
+        return (today.subtract(const Duration(days: 6)), today);
+      case _DateFilter.month:
+        return (DateTime(today.year, today.month, 1), today);
+      case _DateFilter.custom:
+        return (_dateFrom, _dateTo);
+    }
+  }
+
   Future<void> _load({bool silent = false}) async {
-    // التحميل الكامل فقط بأول فتح؛ بعد الدايلوكات نحدّث بصمت
-    // حتى لا تختفي الصفحة وتظهر ومضة سوداء مع الحاجز الداكن.
-    final showFullLoading = !silent || _data == null;
+    final showFullLoading = !silent || _stats == null;
     if (showFullLoading) {
       setState(() {
         _loading = true;
@@ -60,10 +91,15 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
     try {
-      final data = await widget.api.getDashboard();
+      final statsFuture = widget.api.getDashboard();
+      final tableFuture = _fetchCustomers(page: 1);
+      final data = await statsFuture;
+      final page = await tableFuture;
       if (!mounted) return;
       setState(() {
-        _data = data;
+        _stats = data.stats;
+        _customers = page;
+        _loadingMore = false;
         _error = null;
       });
     } catch (e) {
@@ -74,6 +110,67 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<PageResult<Customer>> _fetchCustomers({required int page}) {
+    final range = _activeDateRange;
+    return widget.api.getCustomers(
+      q: _query,
+      governorate: _governorateFilter,
+      status: _statusFilter,
+      dateFrom: range.$1,
+      dateTo: range.$2,
+      page: page,
+      pageSize: _pageSize,
+    );
+  }
+
+  Future<void> _reloadTable({bool showSpinner = true}) async {
+    if (showSpinner) {
+      setState(() => _tableLoading = true);
+    }
+    try {
+      final result = await _fetchCustomers(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _customers = result;
+        _loadingMore = false;
+        _tableLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _tableLoading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  Future<void> _loadMoreCustomers() async {
+    if (_loadingMore || _tableLoading || !_hasMoreCustomers) return;
+    setState(() => _loadingMore = true);
+    try {
+      final result = await _fetchCustomers(page: _customers.page + 1);
+      if (!mounted) return;
+      setState(() {
+        _customers = _customers.appended(result);
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      final next = value.trim();
+      if (next == _query) return;
+      setState(() => _query = next);
+      _reloadTable();
+    });
   }
 
   Future<void> _openAdd() async {
@@ -104,54 +201,29 @@ class _HomeScreenState extends State<HomeScreen> {
     await _load(silent: true);
   }
 
-  List<String> get _governorateOptions {
-    final set = <String>{};
-    for (final c in _data?.customers ?? const <Customer>[]) {
-      if (c.governorate.trim().isNotEmpty) set.add(c.governorate.trim());
+  Future<void> _onDateFilterSelected(_DateFilter value) async {
+    if (value == _DateFilter.custom) {
+      final range = await _showCustomDateRangeDialog(
+        context: context,
+        initialFrom: _dateFrom,
+        initialTo: _dateTo,
+      );
+      if (!mounted || range == null) return;
+      setState(() {
+        _dateFilter = _DateFilter.custom;
+        _dateFrom = range.$1;
+        _dateTo = range.$2;
+      });
+      await _reloadTable();
+      return;
     }
-    final list = set.toList()..sort();
-    return list;
-  }
 
-  bool _matchesDate(Customer c) {
-    final d = DateTime(
-      c.registrationDate.year,
-      c.registrationDate.month,
-      c.registrationDate.day,
-    );
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    switch (_dateFilter) {
-      case _DateFilter.all:
-        return true;
-      case _DateFilter.today:
-        return d == today;
-      case _DateFilter.week:
-        final start = today.subtract(const Duration(days: 6));
-        return !d.isBefore(start) && !d.isAfter(today);
-      case _DateFilter.month:
-        return d.year == today.year && d.month == today.month;
-    }
-  }
-
-  List<Customer> get _filteredCustomers {
-    final q = _query.trim().toLowerCase();
-    return (_data?.customers ?? const <Customer>[])
-        .where((c) {
-          if (_governorateFilter != null &&
-              c.governorate.trim() != _governorateFilter) {
-            return false;
-          }
-          if (_statusFilter != null && c.status != _statusFilter) {
-            return false;
-          }
-          if (!_matchesDate(c)) return false;
-          if (q.isEmpty) return true;
-          return c.name.toLowerCase().contains(q) ||
-              c.phone.contains(q) ||
-              c.governorate.toLowerCase().contains(q);
-        })
-        .toList();
+    setState(() {
+      _dateFilter = value;
+      _dateFrom = null;
+      _dateTo = null;
+    });
+    await _reloadTable();
   }
 
   @override
@@ -202,15 +274,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     HomeHeader(
                                       searchController: _searchController,
-                                      customers: _data?.customers ?? [],
+                                      customers: _customers.items,
                                       user: widget.auth.user,
                                       onLogout: widget.auth.logout,
-                                      onQueryChanged: (q) => setState(
-                                        () => _query = q,
-                                      ),
-                                      onSearch: () => setState(
-                                        () => _query = _searchController.text,
-                                      ),
+                                      onQueryChanged: _onSearchChanged,
+                                      onSearch: () {
+                                        _searchDebounce?.cancel();
+                                        final next =
+                                            _searchController.text.trim();
+                                        setState(() => _query = next);
+                                        _reloadTable();
+                                      },
                                       onSelectCustomer: _openCustomer,
                                     ),
                                     const SizedBox(height: 23),
@@ -224,9 +298,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: RefreshIndicator(
                                         color: AppTheme.soft,
                                         onRefresh: () => _load(silent: true),
-                                        child: CustomersTable(
-                                          customers: _filteredCustomers,
-                                          onOpen: _openCustomer,
+                                        child: Stack(
+                                          children: [
+                                            CustomersTable(
+                                              customers: _customers.items,
+                                              onOpen: _openCustomer,
+                                              hasMore: _hasMoreCustomers,
+                                              loadingMore: _loadingMore,
+                                              onLoadMore: _loadMoreCustomers,
+                                              total: _customers.total,
+                                            ),
+                                            if (_tableLoading)
+                                              const Positioned.fill(
+                                                child: ColoredBox(
+                                                  color: Color(0x66F6FCFF),
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                      color: AppTheme.soft,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -244,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _statsSection() {
-    final stats = _data?.stats;
+    final stats = _stats;
     if (stats == null) return const SizedBox.shrink();
 
     return Row(
@@ -322,6 +416,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _DateFilter.today => 'اليوم',
       _DateFilter.week => 'هذا الأسبوع',
       _DateFilter.month => 'هذا الشهر',
+      _DateFilter.custom
+          when _dateFrom != null && _dateTo != null =>
+        '${formatDayMonth(_dateFrom!)} - ${formatDayMonth(_dateTo!)}',
+      _DateFilter.custom => 'من / إلى',
     };
 
     return Row(
@@ -344,13 +442,16 @@ class _HomeScreenState extends State<HomeScreen> {
               value: null,
               child: Text('الكل'),
             ),
-            for (final g in _governorateOptions)
+            for (final g in iraqiGovernorates)
               PopupMenuItem<String?>(
                 value: g,
                 child: Text(g),
               ),
           ],
-          onSelected: (v) => setState(() => _governorateFilter = v),
+          onSelected: (v) {
+            setState(() => _governorateFilter = v);
+            _reloadTable();
+          },
         ),
         const SizedBox(width: 15),
         _FilterMenu<CustomerStatus?>(
@@ -383,11 +484,14 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text('مرفوضة'),
             ),
           ],
-          onSelected: (v) => setState(() => _statusFilter = v),
+          onSelected: (v) {
+            setState(() => _statusFilter = v);
+            _reloadTable();
+          },
         ),
         const SizedBox(width: 15),
         _FilterMenu<_DateFilter>(
-          width: 139,
+          width: _dateFilter == _DateFilter.custom ? 210 : 139,
           label: dateLabel,
           active: _dateFilter != _DateFilter.all,
           items: const [
@@ -407,8 +511,12 @@ class _HomeScreenState extends State<HomeScreen> {
               value: _DateFilter.month,
               child: Text('هذا الشهر'),
             ),
+            PopupMenuItem<_DateFilter>(
+              value: _DateFilter.custom,
+              child: Text('من / إلى'),
+            ),
           ],
-          onSelected: (v) => setState(() => _dateFilter = v),
+          onSelected: _onDateFilterSelected,
         ),
         const SizedBox(width: 15),
         Material(
@@ -449,6 +557,259 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+Future<(DateTime, DateTime)?> _showCustomDateRangeDialog({
+  required BuildContext context,
+  DateTime? initialFrom,
+  DateTime? initialTo,
+}) {
+  return showAppDialog<(DateTime, DateTime)>(
+    context: context,
+    builder: (ctx) => _CustomDateRangeDialog(
+      initialFrom: initialFrom,
+      initialTo: initialTo,
+    ),
+  );
+}
+
+class _CustomDateRangeDialog extends StatefulWidget {
+  const _CustomDateRangeDialog({
+    this.initialFrom,
+    this.initialTo,
+  });
+
+  final DateTime? initialFrom;
+  final DateTime? initialTo;
+
+  @override
+  State<_CustomDateRangeDialog> createState() => _CustomDateRangeDialogState();
+}
+
+class _CustomDateRangeDialogState extends State<_CustomDateRangeDialog> {
+  late DateTime _from;
+  late DateTime _to;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _from = widget.initialFrom ?? today.subtract(const Duration(days: 7));
+    _to = widget.initialTo ?? today;
+    if (_from.isAfter(_to)) {
+      _from = _to;
+    }
+  }
+
+  Future<void> _pick({required bool isFrom}) async {
+    final current = isFrom ? _from : _to;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.soft,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: AppTheme.basic,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked == null) return;
+    final day = DateTime(picked.year, picked.month, picked.day);
+    setState(() {
+      _error = null;
+      if (isFrom) {
+        _from = day;
+        if (_from.isAfter(_to)) _to = _from;
+      } else {
+        _to = day;
+        if (_to.isBefore(_from)) _from = _to;
+      }
+    });
+  }
+
+  void _apply() {
+    if (_from.isAfter(_to)) {
+      setState(() => _error = 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return;
+    }
+    Navigator.of(context).pop((_from, _to));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'فلترة زمنية',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.text(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'اختر تاريخ البداية والنهاية حسب تسجيل الزبون',
+                  textAlign: TextAlign.center,
+                  style: AppTheme.text(
+                    fontSize: 13,
+                    color: AppTheme.basic.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DateFieldButton(
+                        label: 'من',
+                        value: formatDayMonth(_from),
+                        onTap: () => _pick(isFrom: true),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _DateFieldButton(
+                        label: 'إلى',
+                        value: formatDayMonth(_to),
+                        onTap: () => _pick(isFrom: false),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(
+                      color: AppTheme.late,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.basic,
+                          side: const BorderSide(color: Color(0xFFD5E4EC)),
+                          minimumSize: const Size.fromHeight(46),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('إلغاء'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _apply,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.soft,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(46),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('تطبيق'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DateFieldButton extends StatelessWidget {
+  const _DateFieldButton({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3FAFD),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFD7E8F1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: AppTheme.text(
+                fontSize: 12,
+                color: AppTheme.basic.withValues(alpha: 0.65),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: AppTheme.text(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 18,
+                  color: AppTheme.soft,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
