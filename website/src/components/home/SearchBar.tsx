@@ -4,9 +4,15 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   onSubmit?: () => void;
+  placeholder?: string;
 };
 
-export function SearchBar({ value, onChange, onSubmit }: Props) {
+export function SearchBar({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = "ابحث بالاسم أو رقم الهاتف",
+}: Props) {
   const hasValue = value.trim().length > 0;
 
   return (
@@ -37,9 +43,9 @@ export function SearchBar({ value, onChange, onSubmit }: Props) {
           onKeyDown={(e) => {
             if (e.key === "Enter") onSubmit?.();
           }}
-          placeholder="ابحث بالاسم أو رقم الهاتف"
+          placeholder={placeholder}
           inputMode="search"
-          aria-label="بحث عن زبون"
+          aria-label={placeholder}
         />
 
         {hasValue ? (

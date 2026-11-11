@@ -12,7 +12,7 @@ async def add_payment(
 ) -> None:
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
-        detail="الدفعات تُضاف تلقائياً يوم 1 من كل شهر ولا تُسجَّل يدوياً",
+        detail="الدفعات تُضاف يوم 1 من كل شهر ولا تُسجَّل يدوياً",
     )
 
 
@@ -23,5 +23,5 @@ async def update_payment(
 ) -> None:
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
-        detail="الدفعات تُدار تلقائياً ولا يمكن تعديلها يدوياً",
+        detail="الدفعات تُدار من النظام ولا يمكن تعديلها يدوياً",
     )

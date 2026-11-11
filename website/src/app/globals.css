@@ -150,8 +150,15 @@ textarea {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 22px rgba(1, 38, 59, 0.18);
-  pointer-events: none;
   user-select: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+}
+
+button.user-chip {
+  appearance: none;
 }
 
 .user-avatar {
@@ -912,4 +919,97 @@ textarea {
 .field:focus {
   border-color: var(--soft);
   box-shadow: 0 0 0 3px rgba(6, 155, 175, 0.15);
+}
+
+.admin-tab {
+  border: 1px solid #d7e8f1;
+  background: #fff;
+  border-radius: 16px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(6, 155, 175, 0.08);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.12s ease;
+}
+
+.admin-tab.is-active {
+  background: linear-gradient(160deg, #069baf 0%, #057a8c 100%);
+  border-color: transparent;
+  box-shadow: 0 10px 18px rgba(6, 155, 175, 0.28);
+  transform: translateY(-1px);
+}
+
+.admin-tab-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--basic);
+}
+
+.admin-tab.is-active .admin-tab-label {
+  color: #fff;
+}
+
+.admin-tab-count {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--soft);
+}
+
+.admin-tab.is-active .admin-tab-count {
+  color: #fff;
+}
+
+.admin-stat {
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 74px;
+}
+
+.admin-stat span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.admin-stat strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0b3a5c;
+  line-height: 1.3;
+}
+
+.admin-stat.tone-navy {
+  background: #dce8f1;
+}
+.admin-stat.tone-navy span {
+  color: #22577a;
+}
+
+.admin-stat.tone-mint {
+  background: #d2e9e6;
+}
+.admin-stat.tone-mint span {
+  color: #0e8a61;
+}
+
+.admin-stat.tone-gold {
+  background: #f7efdc;
+}
+.admin-stat.tone-gold span {
+  color: #c38508;
+}
+
+.admin-stat.tone-red {
+  background: #fdecec;
+}
+.admin-stat.tone-red span {
+  color: #c0392b;
 }

@@ -90,3 +90,28 @@ export type DashboardResponse = {
   stats: DashboardStats;
   role: string;
 };
+
+export type Merchant = {
+  id: string;
+  username: string;
+  full_name: string;
+  phone: string;
+  governorate: string;
+  address: string;
+  master_card: string;
+  bank_percent: number;
+  platform_percent: number;
+  active: boolean;
+  customers_count: number;
+  total_amounts: number;
+  bank_amounts: number;
+  platform_amounts: number;
+  financed_amounts: number;
+  paid_amounts: number;
+  remaining_amounts: number;
+  due_this_month_amount: number;
+  due_this_month_count: number;
+  due_confirmed_this_month?: boolean;
+  due_carried_amount?: number;
+  created_at: string;
+};

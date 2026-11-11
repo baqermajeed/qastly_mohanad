@@ -11,6 +11,7 @@ import {
   logout,
 } from "@/lib/api";
 import type { AppUser, Customer, DashboardStats } from "@/lib/types";
+import { AdminHome } from "@/components/admin/AdminHome";
 import { AddCustomerSheet } from "@/components/home/AddCustomerSheet";
 import { CustomerCard } from "@/components/home/CustomerCard";
 import { CustomerDetailSheet } from "@/components/home/CustomerDetailSheet";
@@ -234,6 +235,10 @@ export default function HomePage() {
     );
   }
 
+  if (user?.role === "admin") {
+    return <AdminHome user={user} onLogout={() => void onLogout()} />;
+  }
+
   const showEmpty =
     !initialLoading && visibleCustomers.length === 0;
 
@@ -242,6 +247,7 @@ export default function HomePage() {
       <MobileHeader
         user={user}
         onMenu={() => setMenuOpen(true)}
+        onProfile={() => setMenuOpen(true)}
       />
       <SearchBar value={queryInput} onChange={setQueryInput} />
 

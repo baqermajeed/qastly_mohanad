@@ -4,6 +4,7 @@ import type {
   CustomerStatus,
   DashboardResponse,
   LoginResponse,
+  Merchant,
   PageResult,
 } from "./types";
 
@@ -53,6 +54,23 @@ export function clearSession() {
   localStorage.removeItem(USER_KEY);
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+  clearSession();
+  if (!window.location.pathname.startsWith("/login")) {
+    window.location.replace("/login");
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -85,7 +103,13 @@ async function request<T>(
       typeof (data as { detail: unknown }).detail === "string"
         ? (data as { detail: string }).detail
         : `خطأ في الاتصال بالخادم (${res.status})`;
-    throw new Error(detail);
+
+    // جلسة منتهية / غير موجودة في السيرفر
+    if (res.status === 401 && !path.includes("/auth/login")) {
+      redirectToLogin();
+    }
+
+    throw new ApiError(detail, res.status);
   }
 
   return data as T;
@@ -183,4 +207,53 @@ export async function updateCustomer(
     body: JSON.stringify(payload),
   });
   return normalizeCustomer(customer);
+}
+
+export async function approveCustomer(id: string) {
+  const customer = await request<Customer>(`/api/customers/${id}/approve`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return normalizeCustomer(customer);
+}
+
+export async function rejectCustomer(id: string) {
+  const customer = await request<Customer>(`/api/customers/${id}/reject`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return normalizeCustomer(customer);
+}
+
+export type MerchantsQuery = {
+  q?: string;
+  governorate?: string;
+  page?: number;
+  page_size?: number;
+};
+
+export async function getMerchants(params: MerchantsQuery = {}) {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.page_size ?? 10));
+  if (params.q?.trim()) query.set("q", params.q.trim());
+  if (params.governorate) query.set("governorate", params.governorate);
+  return request<PageResult<Merchant>>(`/api/merchants?${query.toString()}`);
+}
+
+export async function createMerchant(payload: {
+  username: string;
+  password: string;
+  full_name: string;
+  phone: string;
+  governorate: string;
+  address: string;
+  master_card: string;
+  bank_percent: number;
+  platform_percent: number;
+}) {
+  return request<Merchant>("/api/merchants", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }

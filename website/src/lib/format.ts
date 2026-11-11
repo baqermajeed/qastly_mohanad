@@ -47,8 +47,19 @@ export function paymentMethodLabel(method?: string): string {
       return "نقداً";
     case "auto":
     default:
-      return "تلقائي";
+      return "نظام";
   }
+}
+
+/** يزيل كلمة «تلقائي» من الملاحظات القديمة المعروضة. */
+export function cleanPaymentNote(note?: string | null): string {
+  if (!note?.trim()) return "—";
+  return note
+    .replace(/دفعة شهرية تلقائية/g, "دفعة شهرية")
+    .replace(/\s*تلقائية\s*/g, " ")
+    .replace(/\s*تلقائي\s*/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function statusLabel(status: string): string {

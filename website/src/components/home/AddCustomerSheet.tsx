@@ -280,8 +280,7 @@ export function AddCustomerSheet({ open, onClose, onCreated }: Props) {
                 />
               </div>
               <p className="text-[12px] font-bold text-[#1E88C8]">
-                أول دفعة تُضاف تلقائياً يوم {formatDate(due)} (1 من الشهر
-                التالي)
+                أول دفعة تُضاف يوم {formatDate(due)} (1 من الشهر التالي)
               </p>
             </div>
           </section>

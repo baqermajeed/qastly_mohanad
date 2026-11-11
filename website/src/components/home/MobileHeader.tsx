@@ -6,14 +6,21 @@ import type { AppUser } from "@/lib/types";
 type Props = {
   user: AppUser | null;
   onMenu?: () => void;
+  onProfile?: () => void;
+  roleLabel?: string;
 };
 
-export function MobileHeader({ user, onMenu }: Props) {
+export function MobileHeader({ user, onMenu, onProfile, roleLabel }: Props) {
   return (
     <header className="header-curve">
       <div className="header-top" dir="ltr">
         <div className="header-row">
-          <div className="user-chip" dir="rtl">
+          <button
+            type="button"
+            className="user-chip"
+            dir="rtl"
+            onClick={onProfile ?? onMenu}
+          >
             <Image
               src="/icons/Faceless Corporate Real Estate Avatar.png"
               alt=""
@@ -23,9 +30,11 @@ export function MobileHeader({ user, onMenu }: Props) {
             />
             <span className="user-meta">
               <span className="user-name">{user?.full_name || "مستخدم"}</span>
-              <span className="user-handle">@{user?.username || "user"}</span>
+              <span className="user-handle">
+                {roleLabel ? roleLabel : `@${user?.username || "user"}`}
+              </span>
             </span>
-          </div>
+          </button>
 
           <div className="brand-block" dir="rtl">
             <Image

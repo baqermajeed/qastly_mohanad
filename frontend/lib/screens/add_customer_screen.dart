@@ -406,7 +406,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: Text(
-                                'أول دفعة تُضاف تلقائياً يوم ${DateFormat('dd/MM/yyyy').format(_firstDue)} (1 من الشهر التالي)',
+                                'أول دفعة تُضاف يوم ${DateFormat('dd/MM/yyyy').format(_firstDue)} (1 من الشهر التالي)',
                                 style: AppTheme.text(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
@@ -570,7 +570,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'أدخل بيانات الزبون وخطة التقسيط. الدفعات تُضاف تلقائياً كل يوم 1.',
+                  'أدخل بيانات الزبون وخطة التقسيط. الدفعات تُضاف كل يوم 1.',
                   textAlign: TextAlign.right,
                   style: AppTheme.text(
                     color: AppTheme.basic.withValues(alpha: 0.7),

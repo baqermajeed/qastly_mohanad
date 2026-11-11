@@ -371,7 +371,7 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'معلومات الزبون والدفعات التلقائية',
+                  'معلومات الزبون والدفعات',
                   style: AppTheme.text(
                     color: AppTheme.basic.withValues(alpha: 0.7),
                     fontSize: 14,
@@ -890,7 +890,7 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
             child: Row(
               children: [
                 Text(
-                  'سجل الدفعات التلقائية',
+                  'سجل الدفعات',
                   style: AppTheme.text(
                     color: _titleBlue,
                     fontSize: 16,
@@ -993,9 +993,16 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
     required PaymentRecord payment,
     required bool striped,
   }) {
-    final note = (payment.note == null || payment.note!.trim().isEmpty)
-        ? '—'
+    final rawNote = (payment.note == null || payment.note!.trim().isEmpty)
+        ? ''
         : payment.note!.trim();
+    final cleanedNote = rawNote
+        .replaceAll('دفعة شهرية تلقائية', 'دفعة شهرية')
+        .replaceAll('تلقائية', '')
+        .replaceAll('تلقائي', '')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+    final note = cleanedNote.isEmpty ? '—' : cleanedNote;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
@@ -1078,7 +1085,7 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         : isCard
             ? const Color(0xFF1E88C8)
             : const Color(0xFF0E8A61);
-    final label = isAuto ? 'تلقائي' : isCard ? 'بطاقة' : 'نقداً';
+    final label = isAuto ? 'نظام' : isCard ? 'بطاقة' : 'نقداً';
     final icon = isAuto
         ? Icons.autorenew_rounded
         : isCard
@@ -1451,8 +1458,8 @@ class _EditCustomerInfoDialogState extends State<_EditCustomerInfoDialog> {
                       ),
                       child: Text(
                         _needsPasswordConfirm
-                            ? 'تعليمليم الخطة غير نشطة يوقف الأقساط والدفعات التلقائية، ويتطلب كلمة مرور حساب المدير.'
-                            : 'غير نشطة = خطة ملغاة وتتوقف دفعاتها التلقائية. المكتملة تظهر تلقائياً عند اكتمال السداد.',
+                            ? 'تعليمليم الخطة غير نشطة يوقف الأقساط والدفعات، ويتطلب كلمة مرور حساب المدير.'
+                            : 'غير نشطة = خطة ملغاة وتتوقف دفعاتها. المكتملة تظهر عند اكتمال السداد.',
                         style: AppTheme.text(
                           color: _actionBlue,
                           fontSize: 13,

@@ -5,6 +5,7 @@ import type { DashboardStats } from "@/lib/types";
 type Props = {
   stats: DashboardStats | null;
   compact?: boolean;
+  variant?: "merchant" | "admin";
 };
 
 function StatCard({
@@ -50,7 +51,11 @@ function StatCard({
   );
 }
 
-export function StatsGrid({ stats, compact = false }: Props) {
+export function StatsGrid({
+  stats,
+  compact = false,
+  variant = "merchant",
+}: Props) {
   if (!stats) {
     return (
       <div
@@ -63,48 +68,92 @@ export function StatsGrid({ stats, compact = false }: Props) {
     );
   }
 
-  const items = [
-    {
-      title: "إجمالي المبالغ",
-      value: money(stats.total_amounts),
-      tone: "navy" as const,
-    },
-    {
-      title: "المبالغ المسددة",
-      value: money(stats.paid_amounts),
-      tone: "mint" as const,
-    },
-    {
-      title: "المبالغ المتبقية",
-      value: money(stats.remaining_amounts),
-      tone: "gold" as const,
-    },
-    {
-      title: "عدد الزبائن",
-      value: `${stats.total_customers}`,
-      tone: "navy" as const,
-    },
-    {
-      title: "عمولة المنصة",
-      value: money(stats.platform_amounts),
-      tone: "mint" as const,
-    },
-    {
-      title: "عمولة المصرف",
-      value: money(stats.bank_amounts),
-      tone: "gold" as const,
-    },
-    {
-      title: "الخطط النشطة",
-      value: `${stats.remaining_count}`,
-      tone: "white" as const,
-    },
-    {
-      title: "مستحقاتك هذا الشهر",
-      value: money(stats.due_this_month_amount ?? 0),
-      tone: "gold" as const,
-    },
-  ];
+  const items =
+    variant === "admin"
+      ? [
+          {
+            title: "عمولة المنصة",
+            value: money(stats.platform_amounts),
+            tone: "navy" as const,
+          },
+          {
+            title: "عمولة المصرف",
+            value: money(stats.bank_amounts),
+            tone: "gold" as const,
+          },
+          {
+            title: "إجمالي الخطط",
+            value: money(stats.total_amounts),
+            tone: "mint" as const,
+          },
+          {
+            title: "المتبقي على الزبائن",
+            value: money(stats.remaining_amounts),
+            tone: "gold" as const,
+          },
+          {
+            title: "عدد التجار",
+            value: `${stats.merchants_count}`,
+            tone: "navy" as const,
+          },
+          {
+            title: "عدد الزبائن",
+            value: `${stats.total_customers}`,
+            tone: "mint" as const,
+          },
+          {
+            title: "طلبات بانتظار الموافقة",
+            value: `${stats.pending_count}`,
+            tone: "gold" as const,
+          },
+          {
+            title: "الخطط النشطة",
+            value: `${stats.remaining_count}`,
+            tone: "white" as const,
+          },
+        ]
+      : [
+          {
+            title: "إجمالي المبالغ",
+            value: money(stats.total_amounts),
+            tone: "navy" as const,
+          },
+          {
+            title: "المبالغ المسددة",
+            value: money(stats.paid_amounts),
+            tone: "mint" as const,
+          },
+          {
+            title: "المبالغ المتبقية",
+            value: money(stats.remaining_amounts),
+            tone: "gold" as const,
+          },
+          {
+            title: "عدد الزبائن",
+            value: `${stats.total_customers}`,
+            tone: "navy" as const,
+          },
+          {
+            title: "عمولة المنصة",
+            value: money(stats.platform_amounts),
+            tone: "mint" as const,
+          },
+          {
+            title: "عمولة المصرف",
+            value: money(stats.bank_amounts),
+            tone: "gold" as const,
+          },
+          {
+            title: "الخطط النشطة",
+            value: `${stats.remaining_count}`,
+            tone: "white" as const,
+          },
+          {
+            title: "مستحقاتك هذا الشهر",
+            value: money(stats.due_this_month_amount ?? 0),
+            tone: "gold" as const,
+          },
+        ];
 
   if (compact) {
     return (

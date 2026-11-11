@@ -2,8 +2,14 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
-import { getCustomer, updateCustomer } from "@/lib/api";
 import {
+  approveCustomer,
+  getCustomer,
+  rejectCustomer,
+  updateCustomer,
+} from "@/lib/api";
+import {
+  cleanPaymentNote,
   formatDateString,
   iraqiGovernorates,
   money,
@@ -17,6 +23,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onUpdated?: () => void;
+  isAdmin?: boolean;
 };
 
 function MetaItem({ label, value }: { label: string; value: string }) {
@@ -50,12 +57,14 @@ export function CustomerDetailSheet({
   open,
   onClose,
   onUpdated,
+  isAdmin = false,
 }: Props) {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [planBusy, setPlanBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -184,7 +193,7 @@ export function CustomerDetailSheet({
                 </svg>
               </span>
             </div>
-            <p>معلومات الزبون والدفعات التلقائية</p>
+            <p>معلومات الزبون والدفعات</p>
           </div>
         </header>
 
@@ -205,6 +214,72 @@ export function CustomerDetailSheet({
                   </div>
                   <span className="status-pill">{statusLabel(customer.status)}</span>
                 </div>
+                {isAdmin && customer.status === "pending" ? (
+                  <div className="cd-actions mb-2">
+                    <button
+                      type="button"
+                      className="h-11 rounded-xl bg-[#0E8A61] text-[12px] font-extrabold text-white disabled:opacity-60"
+                      disabled={planBusy}
+                      onClick={async () => {
+                        setPlanBusy(true);
+                        try {
+                          const updated = await approveCustomer(customer.id);
+                          setCustomer({
+                            ...customer,
+                            ...updated,
+                            payments: customer.payments,
+                          });
+                          onUpdated?.();
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "تعذر اعتماد الخطة",
+                          );
+                        } finally {
+                          setPlanBusy(false);
+                        }
+                      }}
+                    >
+                      اعتماد الخطة
+                    </button>
+                    <button
+                      type="button"
+                      className="h-11 rounded-xl border border-[#E7B4AE] bg-[#FDECEC] text-[12px] font-extrabold text-[var(--late)] disabled:opacity-60"
+                      disabled={planBusy}
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            `رفض طلب خطة الزبون ${customer.name}؟`,
+                          )
+                        ) {
+                          return;
+                        }
+                        setPlanBusy(true);
+                        try {
+                          const updated = await rejectCustomer(customer.id);
+                          setCustomer({
+                            ...customer,
+                            ...updated,
+                            payments: customer.payments,
+                          });
+                          onUpdated?.();
+                        } catch (err) {
+                          setError(
+                            err instanceof Error
+                              ? err.message
+                              : "تعذر رفض الطلب",
+                          );
+                        } finally {
+                          setPlanBusy(false);
+                        }
+                      }}
+                    >
+                      رفض
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="cd-actions">
                   <button
                     type="button"
@@ -306,7 +381,7 @@ export function CustomerDetailSheet({
 
               <section className="cd-card">
                 <div className="cd-payments-head">
-                  <h5 className="cd-section-title mb-0">سجل الدفعات التلقائية</h5>
+                  <h5 className="cd-section-title mb-0">سجل الدفعات</h5>
                   <span className="cd-count">{payments.length}</span>
                 </div>
 
@@ -337,7 +412,7 @@ export function CustomerDetailSheet({
                           </div>
                         </div>
                         <div className="cd-payment-note">
-                          {p.note?.trim() || "بدون ملاحظة"}
+                          {cleanPaymentNote(p.note)}
                         </div>
                       </div>
                     ))}

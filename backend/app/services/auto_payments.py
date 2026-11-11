@@ -88,7 +88,7 @@ async def apply_due_payments_for_customer(
                     "due_date": datetime.combine(due, datetime.min.time()),
                     "installment_no": installment_no,
                     "method": "auto",
-                    "note": f"دفعة شهرية تلقائية — القسط {installment_no} من {months}",
+                    "note": f"دفعة شهرية — القسط {installment_no} من {months}",
                     "created_at": now,
                 }
             )

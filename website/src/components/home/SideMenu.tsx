@@ -10,9 +10,17 @@ type Props = {
   stats: DashboardStats | null;
   onClose: () => void;
   onLogout: () => void;
+  variant?: "merchant" | "admin";
 };
 
-export function SideMenu({ open, user, stats, onClose, onLogout }: Props) {
+export function SideMenu({
+  open,
+  user,
+  stats,
+  onClose,
+  onLogout,
+  variant = "merchant",
+}: Props) {
   return (
     <>
       <button
@@ -62,7 +70,9 @@ export function SideMenu({ open, user, stats, onClose, onLogout }: Props) {
                 {user?.full_name || "مستخدم"}
               </div>
               <div className="truncate text-xs font-semibold text-[var(--basic)]/55">
-                {user?.username || "—"}
+                {variant === "admin"
+                  ? "مدير المنصة"
+                  : user?.username || "—"}
               </div>
             </div>
           </div>
@@ -70,7 +80,7 @@ export function SideMenu({ open, user, stats, onClose, onLogout }: Props) {
 
         <h3 className="mb-2 text-sm font-extrabold text-[var(--basic)]">الإحصائيات</h3>
         <div className="side-stats mb-4 max-h-[58dvh] overflow-y-auto pe-1">
-          <StatsGrid stats={stats} compact />
+          <StatsGrid stats={stats} compact variant={variant} />
         </div>
 
         <button

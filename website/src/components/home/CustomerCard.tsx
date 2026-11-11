@@ -8,6 +8,7 @@ type Props = {
   customer: Customer;
   index: number;
   onOpen?: (customer: Customer) => void;
+  showMerchant?: boolean;
 };
 
 function MoneyCell({
@@ -39,7 +40,12 @@ function MoneyCell({
   );
 }
 
-export function CustomerCard({ customer, index, onOpen }: Props) {
+export function CustomerCard({
+  customer,
+  index,
+  onOpen,
+  showMerchant = false,
+}: Props) {
   return (
     <article
       className="customer-card cursor-pointer transition active:scale-[0.99]"
@@ -68,6 +74,11 @@ export function CustomerCard({ customer, index, onOpen }: Props) {
           <h3 className="truncate text-[15px] font-extrabold text-[var(--basic)]">
             {customer.name}
           </h3>
+          {showMerchant && customer.merchant_name ? (
+            <div className="mt-0.5 truncate text-[11px] font-bold text-[var(--basic)]/45">
+              التاجر: {customer.merchant_name}
+            </div>
+          ) : null}
           <a
             href={`tel:${customer.phone}`}
             className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-bold text-[#1E7AA8]"
