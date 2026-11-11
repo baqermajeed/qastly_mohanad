@@ -455,6 +455,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             background: AppTheme.cardGold,
           ),
         ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: DashboardStatCard(
+            title: 'المبالغ الواجب تسديدها هذا الشهر',
+            value: money(stats.dueThisMonthAmount),
+            background: AppTheme.cardGold,
+          ),
+        ),
       ],
     );
   }

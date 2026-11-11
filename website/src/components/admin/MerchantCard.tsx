@@ -14,6 +14,9 @@ export function MerchantCard({ merchant, index, onOpen }: Props) {
   const whatsapp = merchant.phone
     ? `https://wa.me/964${merchant.phone.replace(/^0/, "")}`
     : null;
+  const unpaid =
+    !merchant.due_confirmed_this_month &&
+    (merchant.due_this_month_amount ?? 0) > 0;
 
   return (
     <article
@@ -40,9 +43,16 @@ export function MerchantCard({ merchant, index, onOpen }: Props) {
           className="h-[42px] w-[42px] rounded-full object-cover"
         />
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-extrabold text-[var(--basic)]">
-            {merchant.full_name}
-          </h3>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <h3 className="truncate text-[15px] font-extrabold text-[var(--basic)]">
+              {merchant.full_name}
+            </h3>
+            {unpaid ? (
+              <span className="shrink-0 rounded-lg border border-[#E53935]/35 bg-[#FDECEC] px-1.5 py-0.5 text-[10px] font-extrabold text-[#E53935]">
+                غير مسدد
+              </span>
+            ) : null}
+          </div>
           <div className="mt-0.5 text-[12px] font-bold text-[var(--basic)]/50">
             @{merchant.username}
           </div>

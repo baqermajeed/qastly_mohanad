@@ -206,7 +206,17 @@ async def dashboard_due_this_month(
     db: AsyncIOMotorDatabase,
     user: UserOut,
 ) -> tuple[float, int]:
-    """مستحقات التاجر الظاهرة في لوحة الإحصائيات (من حساب الباكند)."""
+    """المبالغ الواجب تسديدها هذا الشهر.
+
+    الحساب من الباكند:
+    - لكل تاجر: مجموع أقساط الخطط النشطة المستحقة لكل شهر
+      (من أول شهر تقسيط حتى الشهر الحالي) ناقص ما تم تأكيده في
+      merchant_settlements.
+    - يستثنى pending/rejected، والخطط inactive لا تولّد استحقاق.
+    - التاجر: مبلغ مستحقاته الظاهرة + عدد الخطط المستحقة هذا الشهر.
+    - المدير: مجموع المستحقات غير المسددة لكل التجار + عدد الخطط
+      المستحقة هذا الشهر لدى التجار غير المسددين.
+    """
     if user.role == "merchant":
         oid = _oid(user.id)
         doc = await db.users.find_one({"_id": oid})
@@ -220,7 +230,6 @@ async def dashboard_due_this_month(
             int(stats["due_this_month_count"]),
         )
 
-    # للمدير: مجموع مستحقات كل التجار غير المؤكدة
     total = 0.0
     count = 0
     cursor = db.users.find({"role": "merchant"})
@@ -231,7 +240,7 @@ async def dashboard_due_this_month(
             created_at=merchant.get("created_at"),
         )
         amount = float(stats["due_this_month_amount"])
-        if amount <= 0:
+        if amount <= 0.01:
             continue
         total += amount
         count += int(stats["due_this_month_count"])

@@ -735,6 +735,13 @@ button.user-chip {
   color: #7b4db8;
 }
 
+.tone-gold {
+  background: #fff4e5;
+}
+.tone-gold .cd-money-label {
+  color: #c38508;
+}
+
 .cd-split-list {
   display: flex;
   flex-direction: column;

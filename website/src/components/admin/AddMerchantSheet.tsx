@@ -1,16 +1,24 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { createMerchant } from "@/lib/api";
+import { FormEvent, useEffect, useState } from "react";
+import { createMerchant, updateMerchant } from "@/lib/api";
 import { iraqiGovernorates } from "@/lib/format";
+import type { Merchant } from "@/lib/types";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
+  merchant?: Merchant | null;
 };
 
-export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
+export function AddMerchantSheet({
+  open,
+  onClose,
+  onSaved,
+  merchant = null,
+}: Props) {
+  const editing = Boolean(merchant);
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -20,8 +28,36 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
   const [masterCard, setMasterCard] = useState("");
   const [bankPercent, setBankPercent] = useState("10");
   const [platformPercent, setPlatformPercent] = useState("5");
+  const [active, setActive] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setPassword("");
+    if (merchant) {
+      setFullName(merchant.full_name);
+      setUsername(merchant.username);
+      setPhone(merchant.phone || "");
+      setGovernorate(merchant.governorate || "");
+      setAddress(merchant.address || "");
+      setMasterCard(merchant.master_card || "");
+      setBankPercent(String(merchant.bank_percent ?? 0));
+      setPlatformPercent(String(merchant.platform_percent ?? 0));
+      setActive(merchant.active);
+    } else {
+      setFullName("");
+      setUsername("");
+      setPhone("");
+      setGovernorate("");
+      setAddress("");
+      setMasterCard("");
+      setBankPercent("10");
+      setPlatformPercent("5");
+      setActive(true);
+    }
+  }, [open, merchant]);
 
   if (!open) return null;
 
@@ -47,33 +83,48 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
       setError("رقم الماستر غير صالح");
       return;
     }
+    if (!editing && password.trim().length < 4) {
+      setError("كلمة المرور 4 أحرف على الأقل");
+      return;
+    }
 
     setBusy(true);
     try {
-      await createMerchant({
-        full_name: fullName.trim(),
-        username: username.trim().toLowerCase(),
-        password,
-        phone: phone.trim(),
-        governorate,
-        address: address.trim(),
-        master_card: masterCard.trim(),
-        bank_percent: bank,
-        platform_percent: platform,
-      });
-      setFullName("");
-      setUsername("");
-      setPassword("");
-      setPhone("");
-      setGovernorate("");
-      setAddress("");
-      setMasterCard("");
-      setBankPercent("10");
-      setPlatformPercent("5");
-      onCreated();
+      if (editing && merchant) {
+        await updateMerchant(merchant.id, {
+          full_name: fullName.trim(),
+          phone: phone.trim(),
+          governorate,
+          address: address.trim(),
+          master_card: masterCard.trim(),
+          bank_percent: bank,
+          platform_percent: platform,
+          active,
+          ...(password.trim() ? { password: password.trim() } : {}),
+        });
+      } else {
+        await createMerchant({
+          full_name: fullName.trim(),
+          username: username.trim().toLowerCase(),
+          password,
+          phone: phone.trim(),
+          governorate,
+          address: address.trim(),
+          master_card: masterCard.trim(),
+          bank_percent: bank,
+          platform_percent: platform,
+        });
+      }
+      onSaved();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "تعذر إضافة التاجر");
+      setError(
+        err instanceof Error
+          ? err.message
+          : editing
+            ? "تعذر تعديل التاجر"
+            : "تعذر إضافة التاجر",
+      );
     } finally {
       setBusy(false);
     }
@@ -84,17 +135,19 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
       <button
         type="button"
         className="sheet-backdrop is-open"
+        style={{ zIndex: 60 }}
         aria-label="إغلاق"
         onClick={onClose}
       />
       <div
         className="center-dialog max-h-[88dvh] w-[min(calc(100%-28px),400px)]"
+        style={{ zIndex: 61 }}
         role="dialog"
         aria-modal="true"
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <h3 className="text-base font-extrabold text-[var(--basic)]">
-            إضافة تاجر
+            {editing ? "تعديل التاجر" : "إضافة تاجر"}
           </h3>
           <button
             type="button"
@@ -119,15 +172,18 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
+            disabled={editing}
           />
           <input
             className="field"
-            placeholder="كلمة المرور"
+            placeholder={
+              editing ? "كلمة مرور جديدة (اختياري)" : "كلمة المرور"
+            }
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={4}
+            required={!editing}
+            minLength={editing ? undefined : 4}
           />
           <input
             className="field"
@@ -188,6 +244,17 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
             />
           </div>
 
+          {editing ? (
+            <label className="flex items-center gap-2 rounded-xl bg-[#F7FBFD] px-3 py-3 text-sm font-bold">
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+              />
+              الحساب نشط
+            </label>
+          ) : null}
+
           {error ? (
             <p className="text-center text-sm font-bold text-[var(--late)]">
               {error}
@@ -207,7 +274,7 @@ export function AddMerchantSheet({ open, onClose, onCreated }: Props) {
               className="btn-primary w-full whitespace-nowrap text-[13px]"
               disabled={busy}
             >
-              {busy ? "جاري الحفظ..." : "إضافة التاجر"}
+              {busy ? "جاري الحفظ..." : editing ? "حفظ التعديل" : "إضافة التاجر"}
             </button>
           </div>
         </form>

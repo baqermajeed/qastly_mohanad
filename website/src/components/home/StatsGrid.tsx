@@ -72,6 +72,11 @@ export function StatsGrid({
     variant === "admin"
       ? [
           {
+            title: "المبالغ الواجب تسديدها هذا الشهر",
+            value: money(stats.due_this_month_amount ?? 0),
+            tone: "gold" as const,
+          },
+          {
             title: "عمولة المنصة",
             value: money(stats.platform_amounts),
             tone: "navy" as const,

@@ -11,6 +11,7 @@ import {
 import type { AppUser, Customer, DashboardStats, Merchant } from "@/lib/types";
 import { AddMerchantSheet } from "@/components/admin/AddMerchantSheet";
 import { MerchantCard } from "@/components/admin/MerchantCard";
+import { MerchantDetailSheet } from "@/components/admin/MerchantDetailSheet";
 import { CustomerCard } from "@/components/home/CustomerCard";
 import { CustomerDetailSheet } from "@/components/home/CustomerDetailSheet";
 import { MobileHeader } from "@/components/home/MobileHeader";
@@ -44,6 +45,7 @@ export function AdminHome({ user, onLogout }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [merchantDetailId, setMerchantDetailId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -322,7 +324,12 @@ export function AdminHome({ user, onLogout }: Props) {
         >
           {tab === "merchants"
             ? merchants.map((m, i) => (
-                <MerchantCard key={m.id} merchant={m} index={i + 1} />
+                <MerchantCard
+                  key={m.id}
+                  merchant={m}
+                  index={i + 1}
+                  onOpen={(merchant) => setMerchantDetailId(merchant.id)}
+                />
               ))
             : null}
 
@@ -396,7 +403,14 @@ export function AdminHome({ user, onLogout }: Props) {
       <AddMerchantSheet
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onCreated={() => void refreshAll()}
+        onSaved={() => void refreshAll()}
+      />
+
+      <MerchantDetailSheet
+        open={Boolean(merchantDetailId)}
+        merchantId={merchantDetailId}
+        onClose={() => setMerchantDetailId(null)}
+        onUpdated={() => void refreshAll()}
       />
 
       <CustomerDetailSheet

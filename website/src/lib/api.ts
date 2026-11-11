@@ -142,6 +142,7 @@ export type CustomersQuery = {
   q?: string;
   status?: CustomerStatus;
   governorate?: string;
+  merchant_id?: string;
   date_from?: string;
   date_to?: string;
   page?: number;
@@ -156,6 +157,7 @@ export async function getCustomers(params: CustomersQuery = {}) {
   if (params.q?.trim()) query.set("q", params.q.trim());
   if (params.status) query.set("status", params.status);
   if (params.governorate) query.set("governorate", params.governorate);
+  if (params.merchant_id) query.set("merchant_id", params.merchant_id);
   if (params.date_from) query.set("date_from", params.date_from);
   if (params.date_to) query.set("date_to", params.date_to);
   if (params.exclude_pending) query.set("exclude_pending", "true");
@@ -255,5 +257,36 @@ export async function createMerchant(payload: {
   return request<Merchant>("/api/merchants", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function getMerchant(id: string) {
+  return request<Merchant>(`/api/merchants/${id}`);
+}
+
+export async function updateMerchant(
+  id: string,
+  payload: {
+    full_name?: string;
+    phone?: string;
+    governorate?: string;
+    address?: string;
+    master_card?: string;
+    password?: string;
+    bank_percent?: number;
+    platform_percent?: number;
+    active?: boolean;
+  },
+) {
+  return request<Merchant>(`/api/merchants/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmMerchantDues(id: string) {
+  return request<Merchant>(`/api/merchants/${id}/confirm-dues`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
