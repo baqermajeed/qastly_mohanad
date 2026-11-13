@@ -222,3 +222,68 @@ async def get_investor(db: AsyncIOMotorDatabase, investor_id: str) -> InvestorOu
     if not doc:
         raise HTTPException(status_code=404, detail="المستثمر غير موجود")
     return await serialize_investor(db, doc)
+
+
+async def dashboard_investor_stats(db: AsyncIOMotorDatabase) -> dict:
+    """إحصائيات مجمّعة للمستثمرين والعقود — للوحة المدير."""
+    await apply_due_payouts(db)
+    investors_count = int(await db.users.count_documents({"role": "investor"}))
+    investments = await db.investments.find(
+        {"status": {"$ne": InvestmentStatus.cancelled.value}}
+    ).to_list(None)
+
+    principal_total = 0.0
+    interest_total = 0.0
+    total_with_interest = 0.0
+    due_this_month = 0.0
+    today = date.today()
+    current = date(today.year, today.month, 1)
+
+    for doc in investments:
+        principal_total += float(doc.get("principal") or 0)
+        interest_total += float(doc.get("interest_amount") or 0)
+        total_with_interest += float(doc.get("total_with_interest") or 0)
+        due_this_month += _investment_due_in_month(doc, current)
+
+    investment_ids = [doc["_id"] for doc in investments]
+    paid = 0.0
+    if investment_ids:
+        pay_pipe = [
+            {
+                "$match": {
+                    "investment_id": {"$in": investment_ids},
+                    "paid": True,
+                }
+            },
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+        ]
+        pay_result = await db.investor_payouts.aggregate(pay_pipe).to_list(1)
+        paid = float(pay_result[0]["total"]) if pay_result else 0.0
+
+    # استبعاد أقساط هذا الشهر المدفوعة مسبقاً من المستحق الظاهر
+    if investment_ids:
+        paid_this_month_cursor = db.investor_payouts.find(
+            {
+                "investment_id": {"$in": investment_ids},
+                "paid": True,
+            }
+        )
+        paid_due_this_month = 0.0
+        async for p in paid_this_month_cursor:
+            due_raw = p.get("due_date")
+            if due_raw is None:
+                continue
+            due = as_date(due_raw)
+            if date(due.year, due.month, 1) == current:
+                paid_due_this_month += float(p.get("amount") or 0)
+        due_this_month = max(due_this_month - paid_due_this_month, 0.0)
+
+    return {
+        "investors_count": investors_count,
+        "investments_count": len(investments),
+        "investor_principal_total": round(principal_total, 2),
+        "investor_total_with_interest": round(total_with_interest, 2),
+        "investor_paid_amount": round(paid, 2),
+        "investor_remaining_amount": round(max(total_with_interest - paid, 0), 2),
+        "investor_due_this_month_amount": round(due_this_month, 2),
+    }

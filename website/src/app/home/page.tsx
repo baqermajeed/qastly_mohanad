@@ -22,6 +22,7 @@ import {
 import { MobileHeader } from "@/components/home/MobileHeader";
 import { SearchBar } from "@/components/home/SearchBar";
 import { SideMenu } from "@/components/home/SideMenu";
+import { InvestorHome } from "@/components/investor/InvestorHome";
 
 const PAGE_SIZE = 10;
 
@@ -237,6 +238,10 @@ export default function HomePage() {
 
   if (user?.role === "admin") {
     return <AdminHome user={user} onLogout={() => void onLogout()} />;
+  }
+
+  if (user?.role === "investor") {
+    return <InvestorHome user={user} onLogout={() => void onLogout()} />;
   }
 
   const showEmpty =

@@ -202,6 +202,13 @@ class DashboardStats {
     this.merchantsCount = 0,
     this.dueThisMonthAmount = 0,
     this.dueThisMonthCount = 0,
+    this.investorsCount = 0,
+    this.investmentsCount = 0,
+    this.investorPrincipalTotal = 0,
+    this.investorTotalWithInterest = 0,
+    this.investorPaidAmount = 0,
+    this.investorRemainingAmount = 0,
+    this.investorDueThisMonthAmount = 0,
   });
 
   final int totalCustomers;
@@ -218,6 +225,13 @@ class DashboardStats {
   final int merchantsCount;
   final double dueThisMonthAmount;
   final int dueThisMonthCount;
+  final int investorsCount;
+  final int investmentsCount;
+  final double investorPrincipalTotal;
+  final double investorTotalWithInterest;
+  final double investorPaidAmount;
+  final double investorRemainingAmount;
+  final double investorDueThisMonthAmount;
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
     return DashboardStats(
@@ -236,6 +250,18 @@ class DashboardStats {
       dueThisMonthAmount:
           (json['due_this_month_amount'] as num?)?.toDouble() ?? 0,
       dueThisMonthCount: json['due_this_month_count'] as int? ?? 0,
+      investorsCount: json['investors_count'] as int? ?? 0,
+      investmentsCount: json['investments_count'] as int? ?? 0,
+      investorPrincipalTotal:
+          (json['investor_principal_total'] as num?)?.toDouble() ?? 0,
+      investorTotalWithInterest:
+          (json['investor_total_with_interest'] as num?)?.toDouble() ?? 0,
+      investorPaidAmount:
+          (json['investor_paid_amount'] as num?)?.toDouble() ?? 0,
+      investorRemainingAmount:
+          (json['investor_remaining_amount'] as num?)?.toDouble() ?? 0,
+      investorDueThisMonthAmount:
+          (json['investor_due_this_month_amount'] as num?)?.toDouble() ?? 0,
     );
   }
 }

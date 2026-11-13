@@ -10,7 +10,7 @@ type Props = {
   stats: DashboardStats | null;
   onClose: () => void;
   onLogout: () => void;
-  variant?: "merchant" | "admin";
+  variant?: "merchant" | "admin" | "investor";
 };
 
 export function SideMenu({
@@ -72,7 +72,9 @@ export function SideMenu({
               <div className="truncate text-xs font-semibold text-[var(--basic)]/55">
                 {variant === "admin"
                   ? "مدير المنصة"
-                  : user?.username || "—"}
+                  : variant === "investor"
+                    ? "مستثمر"
+                    : user?.username || "—"}
               </div>
             </div>
           </div>

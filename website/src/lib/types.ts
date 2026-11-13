@@ -71,6 +71,13 @@ export type DashboardStats = {
   merchants_count: number;
   due_this_month_amount?: number;
   due_this_month_count?: number;
+  investors_count?: number;
+  investments_count?: number;
+  investor_principal_total?: number;
+  investor_total_with_interest?: number;
+  investor_paid_amount?: number;
+  investor_remaining_amount?: number;
+  investor_due_this_month_amount?: number;
 };
 
 export type PageResult<T> = {
@@ -114,4 +121,62 @@ export type Merchant = {
   due_confirmed_this_month?: boolean;
   due_carried_amount?: number;
   created_at: string;
+};
+
+export type InvestmentStatus = "active" | "completed" | "cancelled";
+
+export type Investor = {
+  id: string;
+  username: string;
+  full_name: string;
+  phone: string;
+  master_card: string;
+  note?: string;
+  role?: string;
+  active: boolean;
+  investments_count: number;
+  principal_total: number;
+  interest_total: number;
+  total_with_interest: number;
+  paid_amount: number;
+  remaining_amount: number;
+  due_this_month_amount: number;
+  monthly_payout_total: number;
+  created_at: string;
+};
+
+export type InvestorPayout = {
+  id: string;
+  investment_id: string;
+  investor_id: string;
+  amount: number;
+  installment_no: number;
+  due_date: string;
+  paid: boolean;
+  paid_at?: string | null;
+  note?: string | null;
+  created_at: string;
+};
+
+export type Investment = {
+  id: string;
+  investor_id: string;
+  investor_name?: string | null;
+  principal: number;
+  interest_percent: number;
+  interest_amount: number;
+  total_with_interest: number;
+  months_count: number;
+  monthly_payout: number;
+  start_date: string;
+  first_due_date: string;
+  status: InvestmentStatus;
+  note?: string;
+  paid_amount: number;
+  remaining_amount: number;
+  remaining_months: number;
+  due_this_month_amount: number;
+  payouts?: InvestorPayout[];
+  created_at: string;
+  updated_at?: string | null;
 };

@@ -3,6 +3,9 @@ import type {
   Customer,
   CustomerStatus,
   DashboardResponse,
+  Investment,
+  InvestmentStatus,
+  Investor,
   LoginResponse,
   Merchant,
   PageResult,
@@ -286,6 +289,108 @@ export async function updateMerchant(
 
 export async function confirmMerchantDues(id: string) {
   return request<Merchant>(`/api/merchants/${id}/confirm-dues`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export type InvestorsQuery = {
+  q?: string;
+  page?: number;
+  page_size?: number;
+};
+
+export async function getInvestors(params: InvestorsQuery = {}) {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.page_size ?? 10));
+  if (params.q?.trim()) query.set("q", params.q.trim());
+  return request<PageResult<Investor>>(`/api/investors?${query.toString()}`);
+}
+
+export async function getInvestor(id: string) {
+  return request<Investor>(`/api/investors/${id}`);
+}
+
+export async function createInvestor(payload: {
+  username: string;
+  password: string;
+  full_name: string;
+  phone: string;
+  master_card: string;
+  note?: string;
+}) {
+  return request<Investor>("/api/investors", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInvestor(
+  id: string,
+  payload: {
+    full_name?: string;
+    phone?: string;
+    master_card?: string;
+    password?: string;
+    note?: string;
+    active?: boolean;
+  },
+) {
+  return request<Investor>(`/api/investors/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type InvestmentsQuery = {
+  investor_id?: string;
+  status?: InvestmentStatus;
+  page?: number;
+  page_size?: number;
+};
+
+export async function getInvestments(params: InvestmentsQuery = {}) {
+  const query = new URLSearchParams();
+  query.set("page", String(params.page ?? 1));
+  query.set("page_size", String(params.page_size ?? 20));
+  if (params.investor_id) query.set("investor_id", params.investor_id);
+  if (params.status) query.set("status", params.status);
+  return request<PageResult<Investment>>(
+    `/api/investments?${query.toString()}`,
+  );
+}
+
+export async function getInvestment(id: string) {
+  return request<Investment>(`/api/investments/${id}`);
+}
+
+export async function createInvestment(payload: {
+  investor_id: string;
+  principal: number;
+  interest_percent: number;
+  months_count: number;
+  start_date?: string;
+  note?: string;
+}) {
+  return request<Investment>("/api/investments", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function confirmInvestmentPayouts(investmentId: string) {
+  return request<Investment>(
+    `/api/investments/${investmentId}/confirm-payouts`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    },
+  );
+}
+
+export async function confirmPayout(payoutId: string) {
+  return request<Investment>(`/api/investments/payouts/${payoutId}/confirm`, {
     method: "POST",
     body: JSON.stringify({}),
   });

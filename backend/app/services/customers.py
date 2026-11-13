@@ -19,6 +19,7 @@ from app.schemas.dashboard import DashboardResponse, DashboardStats
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments, apply_due_payments_for_customer
+from app.services.investors import dashboard_investor_stats
 from app.services.merchants import dashboard_due_this_month
 from app.services.plan import due_date_for, first_due_date, remaining_months, split_plan
 from app.services.status import as_date, resolve_status, whatsapp_url
@@ -548,6 +549,10 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     financed_amounts = round(sum(c.financed_amount for c in counted), 2)
     due_amount, due_count = await dashboard_due_this_month(db, user)
 
+    investor_stats = (
+        await dashboard_investor_stats(db) if user.role == "admin" else {}
+    )
+
     return DashboardResponse(
         stats=DashboardStats(
             total_customers=total_customers,
@@ -564,6 +569,23 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             merchants_count=merchants,
             due_this_month_amount=due_amount,
             due_this_month_count=due_count,
+            investors_count=int(investor_stats.get("investors_count") or 0),
+            investments_count=int(investor_stats.get("investments_count") or 0),
+            investor_principal_total=float(
+                investor_stats.get("investor_principal_total") or 0
+            ),
+            investor_total_with_interest=float(
+                investor_stats.get("investor_total_with_interest") or 0
+            ),
+            investor_paid_amount=float(
+                investor_stats.get("investor_paid_amount") or 0
+            ),
+            investor_remaining_amount=float(
+                investor_stats.get("investor_remaining_amount") or 0
+            ),
+            investor_due_this_month_amount=float(
+                investor_stats.get("investor_due_this_month_amount") or 0
+            ),
         ),
         # الجداول تُجلب عبر endpoints منفصلة مع pagination/فلترة من السيرفر.
         customers=[],

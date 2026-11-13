@@ -19,6 +19,13 @@ class DashboardStats(BaseModel):
     merchants_count: int = 0
     due_this_month_amount: float = 0
     due_this_month_count: int = 0
+    investors_count: int = 0
+    investments_count: int = 0
+    investor_principal_total: float = 0
+    investor_total_with_interest: float = 0
+    investor_paid_amount: float = 0
+    investor_remaining_amount: float = 0
+    investor_due_this_month_amount: float = 0
 
 
 class DashboardResponse(BaseModel):

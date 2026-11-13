@@ -29,16 +29,17 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
 
   static const _fieldBorder = Color(0xFFD5E8F2);
   static const _headers = <(int, String)>[
-    (5, '#'),
-    (12, 'المبلغ'),
-    (8, 'الفائدة'),
-    (12, 'بعد الفائدة'),
-    (11, 'القسط الشهري'),
-    (8, 'الأشهر'),
-    (8, 'متبقي'),
-    (11, 'البداية'),
-    (11, 'أول قسط'),
-    (9, 'الحالة'),
+    (4, '#'),
+    (10, 'المبلغ'),
+    (7, 'الفائدة'),
+    (10, 'بعد الفائدة'),
+    (9, 'القسط الشهري'),
+    (10, 'المستلم'),
+    (10, 'المتبقي'),
+    (7, 'الأشهر'),
+    (9, 'البداية'),
+    (9, 'أول قسط'),
+    (8, 'الحالة'),
   ];
 
   @override
@@ -230,38 +231,54 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
   Widget _stats() {
     final inv = _investor;
     if (inv == null) return const SizedBox.shrink();
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: DashboardStatCard(
-            title: 'أصل الرصيد',
-            value: money(inv.principalTotal),
-            background: AppTheme.cardNavy,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: DashboardStatCard(
+                title: 'أصل الرصيد',
+                value: money(inv.principalTotal),
+                background: AppTheme.cardNavy,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardStatCard(
+                title: 'بعد الفائدة',
+                value: money(inv.totalWithInterest),
+                background: AppTheme.cardTeal,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardStatCard(
+                title: 'قسط هذا الشهر',
+                value: money(inv.dueThisMonthAmount),
+                background: AppTheme.cardMint,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
-            title: 'بعد الفائدة',
-            value: money(inv.totalWithInterest),
-            background: AppTheme.cardTeal,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
-            title: 'قسط هذا الشهر',
-            value: money(inv.dueThisMonthAmount),
-            background: AppTheme.cardMint,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
-            title: 'المتبقي',
-            value: money(inv.remainingAmount),
-            background: AppTheme.cardGold,
-          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: DashboardStatCard(
+                title: 'المبالغ المستلمة (كل العقود)',
+                value: money(inv.paidAmount),
+                background: AppTheme.cardTeal,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardStatCard(
+                title: 'المبالغ المتبقية (كل العقود)',
+                value: money(inv.remainingAmount),
+                background: AppTheme.cardGold,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -356,9 +373,9 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
             textDirection: TextDirection.rtl,
             child: Row(
               children: [
-                _cell(5, Text('$index', textAlign: TextAlign.center)),
+                _cell(4, Text('$index', textAlign: TextAlign.center)),
                 _cell(
-                  12,
+                  10,
                   Text(
                     money(item.principal),
                     textAlign: TextAlign.center,
@@ -366,7 +383,7 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                   ),
                 ),
                 _cell(
-                  8,
+                  7,
                   Text(
                     '${item.interestPercent}%',
                     textAlign: TextAlign.center,
@@ -374,7 +391,7 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                   ),
                 ),
                 _cell(
-                  12,
+                  10,
                   Text(
                     money(item.totalWithInterest),
                     textAlign: TextAlign.center,
@@ -382,7 +399,7 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                   ),
                 ),
                 _cell(
-                  11,
+                  9,
                   Text(
                     money(item.monthlyPayout),
                     textAlign: TextAlign.center,
@@ -390,26 +407,47 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                   ),
                 ),
                 _cell(
-                  8,
-                  Text('${item.monthsCount}', textAlign: TextAlign.center),
+                  10,
+                  Text(
+                    money(item.paidAmount),
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.completed,
+                    ),
+                  ),
                 ),
                 _cell(
-                  8,
-                  Text('${item.remainingMonths}', textAlign: TextAlign.center),
+                  10,
+                  Text(
+                    money(item.remainingAmount),
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFFC38508),
+                    ),
+                  ),
                 ),
                 _cell(
-                  11,
+                  7,
+                  Text(
+                    '${item.remainingMonths}/${item.monthsCount}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                _cell(
+                  9,
                   Text(formatDate(item.startDate), textAlign: TextAlign.center),
                 ),
                 _cell(
-                  11,
+                  9,
                   Text(
                     formatDate(item.firstDueDate),
                     textAlign: TextAlign.center,
                   ),
                 ),
                 _cell(
-                  9,
+                  8,
                   Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(

@@ -5,7 +5,7 @@ import type { DashboardStats } from "@/lib/types";
 type Props = {
   stats: DashboardStats | null;
   compact?: boolean;
-  variant?: "merchant" | "admin";
+  variant?: "merchant" | "admin" | "investor";
 };
 
 function StatCard({
@@ -69,7 +69,44 @@ export function StatsGrid({
   }
 
   const items =
-    variant === "admin"
+    variant === "investor"
+      ? [
+          {
+            title: "أصل الرصيد",
+            value: money(stats.investor_principal_total ?? stats.total_amounts),
+            tone: "navy" as const,
+          },
+          {
+            title: "بعد الفائدة",
+            value: money(
+              stats.investor_total_with_interest ?? stats.financed_amounts,
+            ),
+            tone: "mint" as const,
+          },
+          {
+            title: "المبالغ المستلمة",
+            value: money(stats.investor_paid_amount ?? stats.paid_amounts),
+            tone: "mint" as const,
+          },
+          {
+            title: "المبالغ المتبقية",
+            value: money(
+              stats.investor_remaining_amount ?? stats.remaining_amounts,
+            ),
+            tone: "gold" as const,
+          },
+          {
+            title: "قسط هذا الشهر",
+            value: money(stats.investor_due_this_month_amount ?? 0),
+            tone: "gold" as const,
+          },
+          {
+            title: "عدد العقود",
+            value: `${stats.investments_count ?? 0}`,
+            tone: "navy" as const,
+          },
+        ]
+      : variant === "admin"
       ? [
           {
             title: "المبالغ الواجب تسديدها هذا الشهر",
@@ -115,6 +152,41 @@ export function StatsGrid({
             title: "الخطط النشطة",
             value: `${stats.remaining_count}`,
             tone: "white" as const,
+          },
+          {
+            title: "عدد المستثمرين",
+            value: `${stats.investors_count ?? 0}`,
+            tone: "navy" as const,
+          },
+          {
+            title: "العقود الاستثمارية",
+            value: `${stats.investments_count ?? 0}`,
+            tone: "mint" as const,
+          },
+          {
+            title: "أصل استثمارات",
+            value: money(stats.investor_principal_total ?? 0),
+            tone: "mint" as const,
+          },
+          {
+            title: "بعد الفائدة (مستثمرين)",
+            value: money(stats.investor_total_with_interest ?? 0),
+            tone: "navy" as const,
+          },
+          {
+            title: "مصروف للمستثمرين",
+            value: money(stats.investor_paid_amount ?? 0),
+            tone: "mint" as const,
+          },
+          {
+            title: "متبقي للمستثمرين",
+            value: money(stats.investor_remaining_amount ?? 0),
+            tone: "gold" as const,
+          },
+          {
+            title: "مستحق للمستثمرين هذا الشهر",
+            value: money(stats.investor_due_this_month_amount ?? 0),
+            tone: "gold" as const,
           },
         ]
       : [

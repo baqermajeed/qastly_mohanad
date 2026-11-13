@@ -5,11 +5,21 @@ import {
   approveCustomer,
   getCustomers,
   getDashboard,
+  getInvestors,
   getMerchants,
   rejectCustomer,
 } from "@/lib/api";
-import type { AppUser, Customer, DashboardStats, Merchant } from "@/lib/types";
+import type {
+  AppUser,
+  Customer,
+  DashboardStats,
+  Investor,
+  Merchant,
+} from "@/lib/types";
+import { AddInvestorSheet } from "@/components/admin/AddInvestorSheet";
 import { AddMerchantSheet } from "@/components/admin/AddMerchantSheet";
+import { InvestorCard } from "@/components/admin/InvestorCard";
+import { InvestorDetailSheet } from "@/components/admin/InvestorDetailSheet";
 import { MerchantCard } from "@/components/admin/MerchantCard";
 import { MerchantDetailSheet } from "@/components/admin/MerchantDetailSheet";
 import { CustomerCard } from "@/components/home/CustomerCard";
@@ -18,7 +28,7 @@ import { MobileHeader } from "@/components/home/MobileHeader";
 import { SearchBar } from "@/components/home/SearchBar";
 import { SideMenu } from "@/components/home/SideMenu";
 
-type Tab = "merchants" | "customers" | "pending";
+type Tab = "merchants" | "investors" | "customers" | "pending";
 
 const PAGE_SIZE = 10;
 
@@ -31,6 +41,7 @@ export function AdminHome({ user, onLogout }: Props) {
   const [tab, setTab] = useState<Tab>("merchants");
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [investors, setInvestors] = useState<Investor[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [pending, setPending] = useState<Customer[]>([]);
   const [page, setPage] = useState(1);
@@ -44,8 +55,10 @@ export function AdminHome({ user, onLogout }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [addInvestorOpen, setAddInvestorOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [merchantDetailId, setMerchantDetailId] = useState<string | null>(null);
+  const [investorDetailId, setInvestorDetailId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -62,9 +75,10 @@ export function AdminHome({ user, onLogout }: Props) {
 
   const items = useMemo(() => {
     if (tab === "merchants") return merchants;
+    if (tab === "investors") return investors;
     if (tab === "pending") return pending;
     return customers;
-  }, [tab, merchants, pending, customers]);
+  }, [tab, merchants, investors, pending, customers]);
 
   useEffect(() => {
     const t = setTimeout(() => setQuery(queryInput.trim()), 350);
@@ -90,6 +104,19 @@ export function AdminHome({ user, onLogout }: Props) {
         });
         if (requestId !== requestIdRef.current) return;
         setMerchants((prev) =>
+          append ? [...prev, ...result.items] : result.items,
+        );
+        setPage(result.page);
+        setPages(result.pages);
+        setTotal(result.total);
+      } else if (activeTab === "investors") {
+        const result = await getInvestors({
+          page: nextPage,
+          page_size: PAGE_SIZE,
+          q: activeQuery || undefined,
+        });
+        if (requestId !== requestIdRef.current) return;
+        setInvestors((prev) =>
           append ? [...prev, ...result.items] : result.items,
         );
         setPage(result.page);
@@ -218,9 +245,11 @@ export function AdminHome({ user, onLogout }: Props) {
   const title =
     tab === "merchants"
       ? "التجار المشتركين"
-      : tab === "pending"
-        ? "طلبات بانتظار الموافقة"
-        : "زبائن التجار";
+      : tab === "investors"
+        ? "المستثمرون"
+        : tab === "pending"
+          ? "طلبات بانتظار الموافقة"
+          : "زبائن التجار";
 
   return (
     <main className="phone-shell pb-8">
@@ -236,14 +265,17 @@ export function AdminHome({ user, onLogout }: Props) {
         placeholder={
           tab === "merchants"
             ? "ابحث عن تاجر بالاسم أو الهاتف"
-            : "ابحث بالاسم أو رقم الهاتف"
+            : tab === "investors"
+              ? "ابحث عن مستثمر بالاسم أو الهاتف"
+              : "ابحث بالاسم أو رقم الهاتف"
         }
       />
 
-      <section className="mx-4 mt-4 grid grid-cols-3 gap-2">
+      <section className="mx-4 mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {(
           [
             ["merchants", "التجار", stats?.merchants_count],
+            ["investors", "المستثمرون", stats?.investors_count],
             ["customers", "الزبائن", stats?.total_customers],
             ["pending", "الطلبات", stats?.pending_count],
           ] as const
@@ -292,6 +324,19 @@ export function AdminHome({ user, onLogout }: Props) {
           </button>
         ) : null}
 
+        {tab === "investors" ? (
+          <button
+            type="button"
+            className="btn-primary mb-3 w-full"
+            onClick={() => setAddInvestorOpen(true)}
+          >
+            <span className="grid h-6 w-6 place-items-center rounded-full bg-white/20 text-lg leading-none">
+              +
+            </span>
+            إضافة مستثمر
+          </button>
+        ) : null}
+
         {error ? (
           <div className="mb-3 rounded-2xl bg-white p-4 text-center text-sm font-bold text-[var(--late)]">
             {error}
@@ -329,6 +374,17 @@ export function AdminHome({ user, onLogout }: Props) {
                   merchant={m}
                   index={i + 1}
                   onOpen={(merchant) => setMerchantDetailId(merchant.id)}
+                />
+              ))
+            : null}
+
+          {tab === "investors"
+            ? investors.map((inv, i) => (
+                <InvestorCard
+                  key={inv.id}
+                  investor={inv}
+                  index={i + 1}
+                  onOpen={(investor) => setInvestorDetailId(investor.id)}
                 />
               ))
             : null}
@@ -406,10 +462,23 @@ export function AdminHome({ user, onLogout }: Props) {
         onSaved={() => void refreshAll()}
       />
 
+      <AddInvestorSheet
+        open={addInvestorOpen}
+        onClose={() => setAddInvestorOpen(false)}
+        onSaved={() => void refreshAll()}
+      />
+
       <MerchantDetailSheet
         open={Boolean(merchantDetailId)}
         merchantId={merchantDetailId}
         onClose={() => setMerchantDetailId(null)}
+        onUpdated={() => void refreshAll()}
+      />
+
+      <InvestorDetailSheet
+        open={Boolean(investorDetailId)}
+        investorId={investorDetailId}
+        onClose={() => setInvestorDetailId(null)}
         onUpdated={() => void refreshAll()}
       />
 
