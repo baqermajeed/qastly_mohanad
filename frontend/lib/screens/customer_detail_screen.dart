@@ -715,9 +715,9 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
       children: [
         Expanded(
           child: _statCard(
-            label: 'نسبة المصرف',
-            value: '${c.bankPercent}%  •  ${money(c.bankAmount)} د.ع',
-            icon: Icons.account_balance_outlined,
+            label: 'عدد الأشهر الكلي',
+            value: '${c.monthsCount} شهر',
+            icon: Icons.calendar_month_outlined,
             background: const Color(0xFFE8F3FB),
             iconColor: const Color(0xFF1E88C8),
           ),
@@ -725,37 +725,9 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         const SizedBox(width: 10),
         Expanded(
           child: _statCard(
-            label: 'نسبة المنصة',
-            value: '${c.platformPercent}%  •  ${money(c.platformAmount)} د.ع',
-            icon: Icons.storefront_outlined,
-            background: const Color(0xFFE7F7EF),
-            iconColor: const Color(0xFF0E8A61),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statCard(
-            label: 'نسبة المستثمر',
-            value: '${c.investorPercent}%  •  ${money(c.investorAmount)} د.ع',
-            icon: Icons.savings_outlined,
-            background: const Color(0xFFF7EFDC),
-            iconColor: const Color(0xFFC38508),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statCard(
-            label: 'المبلغ بعد النسب',
-            value: '${money(c.financedAmount)} د.ع',
-            icon: Icons.pie_chart_outline,
-            background: const Color(0xFFF3ECFB),
-            iconColor: const Color(0xFF7B4DB8),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statCard(
-            label: firstDue == null ? 'أول دفعة' : 'أول دفعة ${_dateFmt.format(firstDue)}',
+            label: firstDue == null
+                ? 'أول دفعة'
+                : 'أول دفعة ${_dateFmt.format(firstDue)}',
             value: nextDue == null
                 ? 'لا توجد دفعات قادمة'
                 : 'القادمة ${_dateFmt.format(nextDue)}',
@@ -783,11 +755,11 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         const SizedBox(width: 10),
         Expanded(
           child: _statCard(
-            label: 'عدد الأشهر الكلي',
-            value: '${c.monthsCount} شهر',
-            icon: Icons.calendar_month_outlined,
-            background: const Color(0xFFE8F3FB),
-            iconColor: const Color(0xFF1E88C8),
+            label: 'المبلغ بعد النسب',
+            value: '${money(c.financedAmount)} د.ع',
+            icon: Icons.pie_chart_outline,
+            background: const Color(0xFFF3ECFB),
+            iconColor: const Color(0xFF7B4DB8),
           ),
         ),
         const SizedBox(width: 10),

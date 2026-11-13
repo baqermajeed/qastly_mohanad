@@ -327,14 +327,14 @@ export function CustomerDetailSheet({
                     tone="green"
                   />
                   <MoneyTile
+                    label="المبلغ بعد النسب"
+                    value={`${money(customer.financed_amount ?? 0)} د.ع`}
+                    tone="purple"
+                  />
+                  <MoneyTile
                     label="المبلغ المتبقي"
                     value={`${money(customer.remaining_amount)} د.ع`}
                     tone="red"
-                  />
-                  <MoneyTile
-                    label="عدد الأشهر"
-                    value={`${customer.months_count} شهر`}
-                    tone="blue"
                   />
                   <MoneyTile
                     label="الأشهر المتبقية"
@@ -346,44 +346,25 @@ export function CustomerDetailSheet({
                     value={`${money(customer.monthly_payment)} د.ع`}
                     tone="purple"
                   />
-                </div>
-              </section>
-
-              <section className="cd-card">
-                <h5 className="cd-section-title">توزيع المبالغ</h5>
-                <div className="cd-split-list">
-                  <div className="cd-split-row">
-                    <span>نسبة المصرف ({customer.bank_percent ?? 0}%)</span>
-                    <strong>{money(customer.bank_amount ?? 0)} د.ع</strong>
-                  </div>
-                  <div className="cd-split-row">
-                    <span>نسبة المنصة ({customer.platform_percent ?? 0}%)</span>
-                    <strong>{money(customer.platform_amount ?? 0)} د.ع</strong>
-                  </div>
-                  <div className="cd-split-row">
-                    <span>
-                      نسبة المستثمر ({customer.investor_percent ?? 0}%)
-                    </span>
-                    <strong>
-                      {money(customer.investor_amount ?? 0)} د.ع
-                    </strong>
-                  </div>
-                  <div className="cd-split-row highlight">
-                    <span>المبلغ بعد النسب</span>
-                    <strong>{money(customer.financed_amount ?? 0)} د.ع</strong>
-                  </div>
-                  <div className="cd-split-row">
-                    <span>أول دفعة</span>
-                    <strong>{firstDue}</strong>
-                  </div>
-                  <div className="cd-split-row">
-                    <span>الدفعة القادمة</span>
-                    <strong>
-                      {customer.next_due_date
+                  <MoneyTile
+                    label="عدد الأشهر"
+                    value={`${customer.months_count} شهر`}
+                    tone="blue"
+                  />
+                  <MoneyTile
+                    label="أول دفعة"
+                    value={firstDue}
+                    tone="cyan"
+                  />
+                  <MoneyTile
+                    label="الدفعة القادمة"
+                    value={
+                      customer.next_due_date
                         ? formatDateString(customer.next_due_date)
-                        : "لا توجد"}
-                    </strong>
-                  </div>
+                        : "لا توجد"
+                    }
+                    tone="blue"
+                  />
                 </div>
               </section>
 

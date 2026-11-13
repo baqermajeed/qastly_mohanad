@@ -237,12 +237,17 @@ class ApiService {
     return Merchant.fromJson(_decode(res));
   }
 
-  Future<Merchant> confirmMerchantDues(String id) async {
+  Future<Merchant> confirmMerchantDues(
+    String id, {
+    double? amount,
+  }) async {
     final res = await _send(
       () => _client.post(
         Uri.parse('$_base/api/merchants/$id/confirm-dues'),
         headers: _jsonHeaders,
-        body: jsonEncode({}),
+        body: jsonEncode({
+          if (amount != null) 'amount': amount,
+        }),
       ),
     );
     return Merchant.fromJson(_decode(res));

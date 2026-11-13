@@ -94,6 +94,16 @@ class MerchantUpdate(BaseModel):
         return self
 
 
+class MerchantConfirmDues(BaseModel):
+    """تسديد مستحقات التاجر — كلياً أو جزئياً.
+
+    إذا لم يُرسل amount يُسدَّد كامل المتبقي.
+    المتبقي بعد التسديد الجزئي يبقى مستحقاً وتُضاف عليه الخطط الجديدة.
+    """
+
+    amount: float | None = Field(default=None, gt=0)
+
+
 class MerchantOut(BaseModel):
     id: str
     username: str

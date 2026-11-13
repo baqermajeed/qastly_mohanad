@@ -201,13 +201,13 @@ export function StatsGrid({
             tone: "navy" as const,
           },
           {
-            title: "المبالغ المسددة",
-            value: money(stats.paid_amounts),
-            tone: "mint" as const,
+            title: "إجمالي المبالغ بعد النسب",
+            value: money(stats.financed_amounts),
+            tone: "white" as const,
           },
           {
-            title: "المبالغ المتبقية",
-            value: money(stats.remaining_amounts),
+            title: "مستحقاتك",
+            value: money(stats.due_this_month_amount ?? 0),
             tone: "gold" as const,
           },
           {
@@ -216,24 +216,9 @@ export function StatsGrid({
             tone: "navy" as const,
           },
           {
-            title: "عمولة المنصة",
-            value: money(stats.platform_amounts),
-            tone: "mint" as const,
-          },
-          {
-            title: "عمولة المصرف",
-            value: money(stats.bank_amounts),
-            tone: "gold" as const,
-          },
-          {
             title: "الخطط النشطة",
             value: `${stats.remaining_count}`,
             tone: "white" as const,
-          },
-          {
-            title: "دفعتك النقدية هذا الشهر",
-            value: money(stats.due_this_month_amount ?? 0),
-            tone: "gold" as const,
           },
         ];
 

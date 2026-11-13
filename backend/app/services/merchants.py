@@ -8,7 +8,12 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.schemas.auth import UserOut
 from app.schemas.customer import CustomerStatus
-from app.schemas.merchant import MerchantCreate, MerchantOut, MerchantUpdate
+from app.schemas.merchant import (
+    MerchantConfirmDues,
+    MerchantCreate,
+    MerchantOut,
+    MerchantUpdate,
+)
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments
@@ -68,10 +73,11 @@ async def _outstanding_dues(
     today: date | None = None,
     created_at: date | datetime | None = None,
 ) -> dict:
-    """مستحقات التاجر: دفعة نقدية واحدة لكل زبون في يوم 1 من الشهر التالي لاعتماده.
+    """مستحقات التاجر = (مبالغ الخطط المستحقة) − (إجمالي ما سُدّد).
 
-    لا تُقسَّم على أشهر خطة الزبون. أي تسويات سابقة تُحسب من إجمالي
-    merchant_settlements مقابل مجموع المبالغ المستحقة حتى اليوم.
+    لكل زبون معتمد: المبلغ الممول يُستحق يوم 1 من الشهر التالي للاعتماد.
+    التسديد يمكن أن يكون جزئياً؛ المتبقي يبقى مستحقاً وتُضاف فوقه
+    مبالغ الخطط الجديدة عند استحقاقها.
     """
     today = today or date.today()
     current = date(today.year, today.month, 1)
@@ -392,6 +398,7 @@ async def confirm_merchant_dues(
     db: AsyncIOMotorDatabase,
     merchant_id: str,
     user: UserOut,
+    payload: MerchantConfirmDues | None = None,
 ) -> MerchantOut:
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="تأكيد المستحقات متاح للمدير فقط")
@@ -413,8 +420,20 @@ async def confirm_merchant_dues(
     if unpaid <= 0.01:
         raise HTTPException(
             status_code=400,
-            detail="لا توجد مستحقات معلقة لتأكيدها هذا الشهر",
+            detail="لا توجد مستحقات معلقة لتأكيدها",
         )
+
+    pay = unpaid
+    if payload is not None and payload.amount is not None:
+        pay = round(float(payload.amount), 2)
+        if pay <= 0:
+            raise HTTPException(status_code=400, detail="مبلغ التسديد يجب أن يكون أكبر من صفر")
+        if pay > unpaid + 0.01:
+            raise HTTPException(
+                status_code=400,
+                detail=f"مبلغ التسديد أكبر من المستحقات المتبقية ({unpaid})",
+            )
+        pay = min(pay, unpaid)
 
     today = date.today()
     current = date(today.year, today.month, 1)
@@ -424,7 +443,7 @@ async def confirm_merchant_dues(
         {"merchant_id": oid, "year_month": key}
     )
     already = float((existing_settlement or {}).get("amount") or 0)
-    new_amount = round(already + unpaid, 2)
+    new_amount = round(already + pay, 2)
 
     await db.merchant_settlements.update_one(
         {"merchant_id": oid, "year_month": key},
@@ -447,7 +466,7 @@ async def confirm_merchant_dues(
         {
             "$set": {
                 "last_dues_confirmed_at": now,
-                "last_dues_confirmed_amount": round(unpaid, 2),
+                "last_dues_confirmed_amount": round(pay, 2),
                 "updated_at": now,
             }
         },

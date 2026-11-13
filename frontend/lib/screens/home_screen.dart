@@ -353,16 +353,16 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: DashboardStatCard(
-            title: 'المبالغ المسددة',
-            value: money(stats.paidAmounts),
-            background: AppTheme.cardMint,
+            title: 'اجمالي المبالغ بعد النسب',
+            value: money(stats.financedAmounts),
+            background: AppTheme.cardTeal,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: DashboardStatCard(
-            title: 'المبالغ المتبقية',
-            value: money(stats.remainingAmounts),
+            title: 'مستحقاتك',
+            value: money(stats.dueThisMonthAmount),
             background: AppTheme.cardGold,
           ),
         ),
@@ -377,33 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: DashboardStatCard(
-            title: 'عمولة المنصة',
-            value: money(stats.platformAmounts),
-            background: AppTheme.cardMint,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
-            title: 'عمولة المصرف',
-            value: money(stats.bankAmounts),
-            background: AppTheme.cardGold,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
             title: 'الخطط النشطة',
             value: '${stats.remainingCount}',
             background: AppTheme.cardTeal,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: DashboardStatCard(
-            title: 'دفعتك النقدية هذا الشهر',
-            value: money(stats.dueThisMonthAmount),
-            background: AppTheme.cardGold,
           ),
         ),
       ],

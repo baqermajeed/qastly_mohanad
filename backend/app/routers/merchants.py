@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.database import get_db
-from app.schemas.merchant import MerchantCreate, MerchantOut, MerchantUpdate
+from app.schemas.merchant import (
+    MerchantConfirmDues,
+    MerchantCreate,
+    MerchantOut,
+    MerchantUpdate,
+)
 from app.schemas.pagination import Page
 from app.services import auth as auth_service
 from app.services import merchants as merchant_service
@@ -54,10 +59,12 @@ async def update_merchant(
 @router.post("/{merchant_id}/confirm-dues", response_model=MerchantOut)
 async def confirm_merchant_dues(
     merchant_id: str,
+    payload: MerchantConfirmDues = MerchantConfirmDues(),
     current_user=Depends(auth_service.require_admin),
 ) -> MerchantOut:
     return await merchant_service.confirm_merchant_dues(
         get_db(),
         merchant_id,
         current_user,
+        payload,
     )

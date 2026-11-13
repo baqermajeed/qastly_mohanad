@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -140,23 +141,52 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
       return;
     }
 
-    final ok = await showDialog<bool>(
+    final outstanding = _merchant.dueThisMonthAmount;
+    final amountCtrl = TextEditingController(
+      text: outstanding == outstanding.roundToDouble()
+          ? outstanding.toInt().toString()
+          : outstanding.toStringAsFixed(2),
+    );
+    final payAmount = await showDialog<double>(
       context: context,
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           title: Text(
-            'تأكيد استلام المستحقات',
+            'تسديد مستحقات التاجر',
             style: AppTheme.text(fontSize: 18, fontWeight: FontWeight.w800),
           ),
-          content: Text(
-            'سيتم تعليم التاجر مستلماً لدفعته النقدية الظاهرة (${money(_merchant.dueThisMonthAmount)} د.ع)${_merchant.dueCarriedAmount > 0 ? ' مع المبالغ المرحلة من أشهر سابقة' : ''}. مستحقات التاجر تُصرف دفعة واحدة نقداً يوم 1 من الشهر التالي لاعتماد الزبون.',
-            style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w600),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'المستحق حالياً: ${money(outstanding)} د.ع'
+                '${_merchant.dueCarriedAmount > 0 ? '\nمنها مرحّل: ${money(_merchant.dueCarriedAmount)} د.ع' : ''}'
+                '\nيمكنك تسديد جزء منه؛ المتبقي يبقى مستحقاً وتُضاف عليه الخطط الجديدة.',
+                style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'مبلغ التسديد',
+                  hintText: 'مثال: ${(outstanding / 2).round()}',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
+              onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'إلغاء',
                 style: AppTheme.text(
@@ -166,12 +196,17 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
               ),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
+              onPressed: () {
+                final raw = amountCtrl.text.trim().replaceAll(',', '');
+                final value = double.tryParse(raw);
+                if (value == null || value <= 0) return;
+                Navigator.pop(ctx, value);
+              },
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF0E8A61),
               ),
               child: Text(
-                'تأكيد الدفع',
+                'تأكيد التسديد',
                 style: AppTheme.text(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -182,18 +217,39 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
         ),
       ),
     );
-    if (ok != true || !mounted) return;
+    amountCtrl.dispose();
+    if (payAmount == null || !mounted) return;
+    if (payAmount > outstanding + 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'مبلغ التسديد أكبر من المستحقات (${money(outstanding)} د.ع)',
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() => _confirmingDues = true);
     try {
-      final updated = await widget.api.confirmMerchantDues(_merchant.id);
+      final updated = await widget.api.confirmMerchantDues(
+        _merchant.id,
+        amount: payAmount,
+      );
       if (!mounted) return;
       setState(() {
         _merchant = updated;
         _changed = true;
       });
+      final remaining = updated.dueThisMonthAmount;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تأكيد استلام المستحقات لهذا الشهر')),
+        SnackBar(
+          content: Text(
+            remaining > 0.01
+                ? 'تم تسديد ${money(payAmount)} د.ع — المتبقي ${money(remaining)} د.ع'
+                : 'تم تسديد المستحقات بالكامل',
+          ),
+        ),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -671,8 +727,8 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
     final hasAmount = _merchant.dueThisMonthAmount > 0;
     final carried = _merchant.dueCarriedAmount;
     final label = carried > 0
-        ? 'دفعة نقدية معلّقة (${_merchant.dueThisMonthCount} زبون) • مرحّل ${money(carried)} د.ع'
-        : 'دفعة نقدية مستحقة يوم 1 (${_merchant.dueThisMonthCount} زبون)';
+        ? 'مستحقات التاجر (${_merchant.dueThisMonthCount} زبون) • متبقي من تسديد سابق ${money(carried)} د.ع'
+        : 'مستحقات التاجر (${_merchant.dueThisMonthCount} زبون) — المتبقي بعد آخر تسديد + الخطط الجديدة';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -776,7 +832,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
                           )
                         : const Icon(Icons.check_circle_outline, size: 18),
                     label: Text(
-                      'تأكيد الدفع',
+                      'تسديد',
                       style: AppTheme.text(
                         color: Colors.white,
                         fontSize: 13,

@@ -58,6 +58,7 @@ export function MerchantDetailSheet({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [planId, setPlanId] = useState<string | null>(null);
 
@@ -88,6 +89,9 @@ export function MerchantDetailSheet({
         }),
       ]);
       setMerchant(m);
+      setPayAmount(
+        m.due_this_month_amount > 0 ? String(m.due_this_month_amount) : "",
+      );
       setPlans(allPlans.items);
       setActiveCount(active.total + inactive.total);
       setCompletedCount(completed.total);
@@ -116,14 +120,32 @@ export function MerchantDetailSheet({
 
   async function onConfirmDues() {
     if (!merchant || confirming || confirmed || dueAmount <= 0) return;
+    const raw = payAmount.trim().replace(/,/g, "");
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("أدخل مبلغ تسديد صالحاً");
+      return;
+    }
+    if (amount > dueAmount + 0.01) {
+      setError(`مبلغ التسديد أكبر من المستحقات (${money(dueAmount)} د.ع)`);
+      return;
+    }
     const ok = window.confirm(
-      `تأكيد صرف الدفعة النقدية للتاجر (${money(dueAmount)} د.ع)؟ مستحقات التاجر تُصرف دفعة واحدة يوم 1 من الشهر التالي لاعتماد الزبون.`,
+      amount + 0.01 >= dueAmount
+        ? `تسديد المستحقات بالكامل (${money(dueAmount)} د.ع)؟`
+        : `تسديد ${money(amount)} د.ع من أصل ${money(dueAmount)} د.ع؟ المتبقي سيبقى مستحقاً وتُضاف عليه الخطط الجديدة.`,
     );
     if (!ok) return;
     setConfirming(true);
+    setError(null);
     try {
-      const updated = await confirmMerchantDues(merchant.id);
+      const updated = await confirmMerchantDues(merchant.id, amount);
       setMerchant(updated);
+      setPayAmount(
+        updated.due_this_month_amount > 0
+          ? String(updated.due_this_month_amount)
+          : "",
+      );
       onUpdated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تأكيد المستحقات");
@@ -319,25 +341,37 @@ export function MerchantDetailSheet({
               <section className="cd-card" style={{ background: "#FFF4E5" }}>
                 <h5 className="cd-section-title" style={{ color: "#C38508" }}>
                   {carried > 0
-                    ? `دفعة نقدية معلّقة (${merchant.due_this_month_count} زبون) • مرحّل ${money(carried)} د.ع`
-                    : `دفعة نقدية مستحقة يوم 1 (${merchant.due_this_month_count} زبون)`}
+                    ? `مستحقات التاجر (${merchant.due_this_month_count} زبون) • متبقي من تسديد سابق ${money(carried)} د.ع`
+                    : `مستحقات التاجر (${merchant.due_this_month_count} زبون) — المتبقي بعد آخر تسديد + الخطط الجديدة`}
                 </h5>
                 <div className="mb-3 text-[18px] font-extrabold text-[#0B3A5C]">
                   {money(dueAmount)} د.ع
                 </div>
                 {confirmed ? (
                   <div className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#9AD4B8] bg-[#E7F7EF] px-4 text-[13px] font-extrabold text-[#0E8A61]">
-                    تم التأكيد
+                    لا مستحقات معلّقة
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="h-11 rounded-xl bg-[#0E8A61] px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
-                    disabled={dueAmount <= 0 || confirming}
-                    onClick={() => void onConfirmDues()}
-                  >
-                    {confirming ? "جاري التأكيد..." : "تأكيد الدفع"}
-                  </button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      type="number"
+                      min={0}
+                      step="any"
+                      className="h-11 w-full rounded-xl border border-[#E8D4B0] bg-white px-3 text-[13px] font-bold text-[#0B3A5C] sm:max-w-[200px]"
+                      placeholder="مبلغ التسديد"
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(e.target.value)}
+                      disabled={confirming}
+                    />
+                    <button
+                      type="button"
+                      className="h-11 rounded-xl bg-[#0E8A61] px-4 text-[13px] font-extrabold text-white disabled:opacity-50"
+                      disabled={dueAmount <= 0 || confirming}
+                      onClick={() => void onConfirmDues()}
+                    >
+                      {confirming ? "جاري التسديد..." : "تسديد"}
+                    </button>
+                  </div>
                 )}
               </section>
 

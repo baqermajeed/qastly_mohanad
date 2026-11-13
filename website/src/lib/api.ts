@@ -289,10 +289,10 @@ export async function updateMerchant(
   });
 }
 
-export async function confirmMerchantDues(id: string) {
+export async function confirmMerchantDues(id: string, amount?: number) {
   return request<Merchant>(`/api/merchants/${id}/confirm-dues`, {
     method: "POST",
-    body: JSON.stringify({}),
+    body: JSON.stringify(amount != null ? { amount } : {}),
   });
 }
 
