@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme.dart';
 import 'screens/admin_home_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/investor_home_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/api_service.dart';
 import 'services/auth_session.dart';
@@ -70,6 +71,9 @@ class QasatlyMohanadApp extends StatelessWidget {
           }
           if (auth.user?.isAdmin == true) {
             return AdminHomeScreen(api: api, auth: auth);
+          }
+          if (auth.user?.isInvestor == true) {
+            return InvestorHomeScreen(api: api, auth: auth);
           }
           return HomeScreen(api: api, auth: auth);
         },

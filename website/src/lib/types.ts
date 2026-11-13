@@ -9,7 +9,7 @@ export type AppUser = {
   id: string;
   username: string;
   full_name: string;
-  role: "admin" | "merchant";
+  role: "admin" | "merchant" | "investor";
   phone?: string;
   governorate?: string;
   bank_percent?: number;

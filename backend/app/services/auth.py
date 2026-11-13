@@ -181,6 +181,17 @@ async def require_merchant(
     return current_user
 
 
+async def require_investor(
+    current_user: UserOut = Depends(get_current_user),
+) -> UserOut:
+    if current_user.role != "investor":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="هذه العملية متاحة للمستثمر فقط",
+        )
+    return current_user
+
+
 async def get_optional_token(
     authorization: str | None = Header(default=None),
 ) -> str | None:

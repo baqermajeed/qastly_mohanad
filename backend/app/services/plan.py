@@ -54,6 +54,25 @@ def split_plan(
     }
 
 
+def split_investment(
+    *,
+    principal: float,
+    interest_percent: float,
+    months_count: int,
+) -> dict[str, float]:
+    """فائدة بسيطة على أصل المبلغ، ثم تقسيم الإجمالي على الأشهر بالتساوي."""
+    principal_amount = round(float(principal), 2)
+    interest_amount = round(principal_amount * float(interest_percent) / 100.0, 2)
+    total_with_interest = round(principal_amount + interest_amount, 2)
+    monthly_payout = round(total_with_interest / months_count, 2)
+    return {
+        "principal": principal_amount,
+        "interest_amount": interest_amount,
+        "total_with_interest": total_with_interest,
+        "monthly_payout": monthly_payout,
+    }
+
+
 def installment_amount(
     *,
     financed_amount: float,

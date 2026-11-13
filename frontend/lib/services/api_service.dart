@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../core/constants.dart';
 import '../models/customer.dart';
+import '../models/investor.dart';
 import '../models/merchant.dart';
 import '../models/page_result.dart';
 import '../models/user.dart';
@@ -276,6 +277,175 @@ class ApiService {
       ),
     );
     return Merchant.fromJson(_decode(res));
+  }
+
+  Future<PageResult<Investor>> getInvestors({
+    String? q,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final params = <String, String>{
+      'page': '$page',
+      'page_size': '$pageSize',
+      if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+    };
+    final query = _query(params);
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/investors$query'),
+        headers: _jsonHeaders,
+      ),
+    );
+    return PageResult.fromJson(_decode(res), Investor.fromJson);
+  }
+
+  Future<Investor> getInvestor(String id) async {
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/investors/$id'),
+        headers: _jsonHeaders,
+      ),
+    );
+    return Investor.fromJson(_decode(res));
+  }
+
+  Future<Investor> createInvestor({
+    required String username,
+    required String password,
+    required String fullName,
+    required String phone,
+    String note = '',
+  }) async {
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/investors'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'username': username,
+          'password': password,
+          'full_name': fullName,
+          'phone': phone,
+          'note': note,
+        }),
+      ),
+    );
+    return Investor.fromJson(_decode(res));
+  }
+
+  Future<Investor> updateInvestor({
+    required String id,
+    String? fullName,
+    String? phone,
+    String? password,
+    String? note,
+    bool? active,
+  }) async {
+    final body = <String, dynamic>{
+      if (fullName != null) 'full_name': fullName,
+      if (phone != null) 'phone': phone,
+      if (password != null && password.isNotEmpty) 'password': password,
+      if (note != null) 'note': note,
+      if (active != null) 'active': active,
+    };
+    final res = await _send(
+      () => _client.patch(
+        Uri.parse('$_base/api/investors/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode(body),
+      ),
+    );
+    return Investor.fromJson(_decode(res));
+  }
+
+  Future<PageResult<Investment>> getInvestments({
+    String? investorId,
+    InvestmentStatus? status,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final params = <String, String>{
+      'page': '$page',
+      'page_size': '$pageSize',
+      if (investorId != null && investorId.isNotEmpty) 'investor_id': investorId,
+      if (status != null) 'status': status.name,
+    };
+    final query = _query(params);
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/investments$query'),
+        headers: _jsonHeaders,
+      ),
+    );
+    return PageResult.fromJson(_decode(res), Investment.fromJson);
+  }
+
+  Future<Investment> getInvestment(String id) async {
+    final res = await _send(
+      () => _client.get(
+        Uri.parse('$_base/api/investments/$id'),
+        headers: _jsonHeaders,
+      ),
+    );
+    return Investment.fromJson(_decode(res));
+  }
+
+  Future<Investment> createInvestment({
+    required String investorId,
+    required double principal,
+    required double interestPercent,
+    required int monthsCount,
+    DateTime? startDate,
+    String note = '',
+  }) async {
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/investments'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'investor_id': investorId,
+          'principal': principal,
+          'interest_percent': interestPercent,
+          'months_count': monthsCount,
+          if (startDate != null)
+            'start_date': startDate.toIso8601String().split('T').first,
+          'note': note,
+        }),
+      ),
+    );
+    return Investment.fromJson(_decode(res));
+  }
+
+  Future<Investment> confirmInvestmentPayouts(String investmentId) async {
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/investments/$investmentId/confirm-payouts'),
+        headers: _jsonHeaders,
+        body: jsonEncode({}),
+      ),
+    );
+    return Investment.fromJson(_decode(res));
+  }
+
+  Future<Investment> confirmPayout(String payoutId) async {
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/investments/payouts/$payoutId/confirm'),
+        headers: _jsonHeaders,
+        body: jsonEncode({}),
+      ),
+    );
+    return Investment.fromJson(_decode(res));
+  }
+
+  Future<Investment> cancelInvestment(String id) async {
+    final res = await _send(
+      () => _client.patch(
+        Uri.parse('$_base/api/investments/$id'),
+        headers: _jsonHeaders,
+        body: jsonEncode({'status': 'cancelled'}),
+      ),
+    );
+    return Investment.fromJson(_decode(res));
   }
 
   Future<Customer> approveCustomer(String id) async {

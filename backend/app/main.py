@@ -5,15 +5,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import close_db, connect_db, get_db
-from app.routers import auth, customers, dashboard, merchants, payments
+from app.routers import (
+    auth,
+    customers,
+    dashboard,
+    investments,
+    investors,
+    merchants,
+    payments,
+)
 
 
 async def _auto_payment_loop() -> None:
     from app.services.auto_payments import apply_due_payments
+    from app.services.auto_payouts import apply_due_payouts
 
     while True:
         try:
-            await apply_due_payments(get_db())
+            db = get_db()
+            await apply_due_payments(db)
+            await apply_due_payouts(db)
         except Exception:
             pass
         await asyncio.sleep(60)
@@ -32,7 +43,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Qasatly Mohanad API",
-    description="منصة أقساط: مدير المنصة والتجار وخطط الزبائن",
+    description="منصة أقساط: مدير المنصة والتجار والمستثمرون وخطط الزبائن",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -47,6 +58,8 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(merchants.router, prefix="/api")
+app.include_router(investors.router, prefix="/api")
+app.include_router(investments.router, prefix="/api")
 app.include_router(customers.router, prefix="/api")
 app.include_router(payments.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")

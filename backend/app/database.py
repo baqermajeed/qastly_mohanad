@@ -24,6 +24,15 @@ async def connect_db() -> None:
     )
     await db.users.create_index("username", unique=True)
     await db.users.create_index("role")
+    await db.investments.create_index("investor_id")
+    await db.investments.create_index("status")
+    await db.investor_payouts.create_index("investment_id")
+    await db.investor_payouts.create_index("investor_id")
+    await db.investor_payouts.create_index(
+        [("investment_id", 1), ("installment_no", 1)],
+        unique=True,
+        sparse=True,
+    )
     await db.merchant_settlements.create_index(
         [("merchant_id", 1), ("year_month", 1)],
         unique=True,
@@ -32,6 +41,9 @@ async def connect_db() -> None:
     await db.sessions.create_index("expires_at", expireAfterSeconds=0)
     await ensure_default_admin(db)
     await apply_due_payments(db)
+    from app.services.auto_payouts import apply_due_payouts
+
+    await apply_due_payouts(db)
 
 
 async def close_db() -> None:

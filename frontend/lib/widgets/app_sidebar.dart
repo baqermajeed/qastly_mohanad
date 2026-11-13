@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/assets.dart';
 import '../core/theme.dart';
 
-enum SidebarNav { home, customers, pending, pay, overdue }
+enum SidebarNav { home, investors, customers, pending, pay, overdue }
 
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
@@ -64,6 +64,13 @@ class AppSidebar extends StatelessWidget {
                   onTap: () => onSelect(SidebarNav.home),
                 ),
                 if (isAdmin) ...[
+                  const SizedBox(height: 14),
+                  _NavItem(
+                    label: 'المستثمرون',
+                    icon: AppAssets.navPay,
+                    selected: active == SidebarNav.investors,
+                    onTap: () => onSelect(SidebarNav.investors),
+                  ),
                   const SizedBox(height: 14),
                   _NavItem(
                     label: 'كل الزبائن',

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/assets.dart';
 import '../core/theme.dart';
 import '../models/customer.dart';
+import '../models/investor.dart';
 import '../models/merchant.dart';
 import '../models/page_result.dart';
 import '../services/api_service.dart';
@@ -17,8 +18,10 @@ import '../widgets/customers_table.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/home_header.dart';
 import '../widgets/infinite_scroll.dart';
+import 'add_investor_screen.dart';
 import 'add_merchant_screen.dart';
 import 'customer_detail_screen.dart';
+import 'investor_detail_screen.dart';
 import 'merchant_detail_screen.dart';
 
 class AdminHomeScreen extends StatefulWidget {
@@ -36,6 +39,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
   DashboardStats? _stats;
   PageResult<Merchant> _merchants = PageResult.empty(pageSize: _pageSize);
+  PageResult<Investor> _investors = PageResult.empty(pageSize: _pageSize);
   PageResult<Customer> _customers = PageResult.empty(pageSize: _pageSize);
   PageResult<Customer> _pending = PageResult.empty(pageSize: _pageSize);
   bool _loading = true;
@@ -50,6 +54,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   PageResult<dynamic> get _activePage => switch (_active) {
         SidebarNav.customers => _customers,
         SidebarNav.pending => _pending,
+        SidebarNav.investors => _investors,
         _ => _merchants,
       };
 
@@ -122,6 +127,16 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         setState(() {
           _pending = append ? _pending.appended(result) : result;
         });
+      case SidebarNav.investors:
+        final result = await widget.api.getInvestors(
+          q: _query,
+          page: page,
+          pageSize: _pageSize,
+        );
+        if (!mounted) return;
+        setState(() {
+          _investors = append ? _investors.appended(result) : result;
+        });
       default:
         final result = await widget.api.getMerchants(
           q: _query,
@@ -189,6 +204,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       api: widget.api,
       merchant: merchant,
     );
+    if (changed == true) await _load(silent: true);
+  }
+
+  Future<void> _openAddInvestor({Investor? investor}) async {
+    final changed = await showAddInvestorDialog(
+      context,
+      api: widget.api,
+      investor: investor,
+    );
+    if (changed == true) await _load(silent: true);
+  }
+
+  Future<void> _openInvestor(Investor investor) async {
+    final changed = await showInvestorDetailDialog(
+      context,
+      api: widget.api,
+      investor: investor,
+    );
+    if (!mounted) return;
     if (changed == true) await _load(silent: true);
   }
 
@@ -361,6 +395,19 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                                   onLoadMore: _loadMoreActive,
                                                   total: _pending.total,
                                                 ),
+                                              SidebarNav.investors =>
+                                                _InvestorsTable(
+                                                  investors: _investors.items,
+                                                  onEdit: (i) =>
+                                                      _openAddInvestor(
+                                                    investor: i,
+                                                  ),
+                                                  onOpen: _openInvestor,
+                                                  hasMore: _investors.hasNext,
+                                                  loadingMore: _loadingMore,
+                                                  onLoadMore: _loadMoreActive,
+                                                  total: _investors.total,
+                                                ),
                                               _ => _MerchantsTable(
                                                   merchants: _merchants.items,
                                                   onEdit: (m) =>
@@ -471,9 +518,11 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final title = switch (_active) {
       SidebarNav.customers => 'زبائن التجار',
       SidebarNav.pending => 'طلبات خطط بانتظار الموافقة',
+      SidebarNav.investors => 'المستثمرون',
       _ => 'التجار المشتركين',
     };
     final showAddMerchant = _active == SidebarNav.home;
+    final showAddInvestor = _active == SidebarNav.investors;
     return Row(
       children: [
         Text(
@@ -499,6 +548,33 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
           ),
         ],
         const Spacer(),
+        if (showAddInvestor)
+          Material(
+            color: AppTheme.soft,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              onTap: _openAddInvestor,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                height: 50,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      'إضافة مستثمر',
+                      style: AppTheme.text(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.add, color: Colors.white, size: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
         if (showAddMerchant)
           Material(
             color: AppTheme.soft,
@@ -527,6 +603,242 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _InvestorsTable extends StatelessWidget {
+  const _InvestorsTable({
+    required this.investors,
+    required this.onEdit,
+    required this.onOpen,
+    this.hasMore = false,
+    this.loadingMore = false,
+    this.onLoadMore,
+    this.total,
+  });
+
+  final List<Investor> investors;
+  final ValueChanged<Investor> onEdit;
+  final ValueChanged<Investor> onOpen;
+  final bool hasMore;
+  final bool loadingMore;
+  final VoidCallback? onLoadMore;
+  final int? total;
+
+  static const _headers = <(int, String)>[
+    (5, '#'),
+    (14, 'اسم المستثمر'),
+    (12, 'الهاتف'),
+    (12, 'المستخدم'),
+    (8, 'العقود'),
+    (12, 'أصل الرصيد'),
+    (12, 'بعد الفائدة'),
+    (12, 'قسط الشهر'),
+    (10, 'المتبقي'),
+    (8, 'تعديل'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          height: 56,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.softGlow,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Row(
+              children: [
+                for (final h in _headers)
+                  Expanded(
+                    flex: h.$1,
+                    child: Text(
+                      h.$2,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.text(
+                        color: AppTheme.basic,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: AppTheme.softGlow,
+            ),
+            child: InfiniteScroll(
+              hasMore: hasMore,
+              loadingMore: loadingMore,
+              onLoadMore: onLoadMore,
+              child: investors.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        Center(
+                          child: Text(
+                            'لا يوجد مستثمرون بعد — أضف أول مستثمر من الزر أعلاه',
+                            style: AppTheme.text(
+                              color: AppTheme.basic.withValues(alpha: 0.6),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: investors.length + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, i) {
+                        if (i >= investors.length) {
+                          return InfiniteScrollFooter(
+                            loadingMore: loadingMore,
+                            hasMore: hasMore,
+                            total: total,
+                          );
+                        }
+                        final inv = investors[i];
+                        return _InvestorRow(
+                          index: i + 1,
+                          investor: inv,
+                          onEdit: () => onEdit(inv),
+                          onOpen: () => onOpen(inv),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InvestorRow extends StatelessWidget {
+  const _InvestorRow({
+    required this.index,
+    required this.investor,
+    required this.onEdit,
+    required this.onOpen,
+  });
+
+  final int index;
+  final Investor investor;
+  final VoidCallback onEdit;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onOpen,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Row(
+                children: [
+                  _cell(5, Text('$index', textAlign: TextAlign.center)),
+                  _cell(
+                    14,
+                    Text(
+                      investor.fullName,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.text(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  _cell(
+                    12,
+                    Text(
+                      investor.phone.isEmpty ? '—' : investor.phone,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  _cell(
+                    12,
+                    Text(investor.username, textAlign: TextAlign.center),
+                  ),
+                  _cell(
+                    8,
+                    Text('${investor.investmentsCount}', textAlign: TextAlign.center),
+                  ),
+                  _cell(
+                    12,
+                    Text(money(investor.principalTotal), textAlign: TextAlign.center),
+                  ),
+                  _cell(
+                    12,
+                    Text(
+                      money(investor.totalWithInterest),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  _cell(
+                    12,
+                    Text(
+                      money(investor.dueThisMonthAmount),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  _cell(
+                    10,
+                    Text(
+                      money(investor.remainingAmount),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  _cell(
+                    8,
+                    IconButton(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(int flex, Widget child) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: child,
+      ),
     );
   }
 }
