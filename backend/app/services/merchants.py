@@ -12,12 +12,7 @@ from app.schemas.merchant import MerchantCreate, MerchantOut, MerchantUpdate
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments
-from app.services.plan import (
-    as_date,
-    installment_due_in_month,
-    iter_months,
-    month_key,
-)
+from app.services.plan import as_date, month_key
 
 
 def _oid(value: str) -> ObjectId:
@@ -26,66 +21,43 @@ def _oid(value: str) -> ObjectId:
     return ObjectId(value)
 
 
-def _customer_due_in_month(doc: dict, month: date) -> float:
-    if doc.get("status") in (
+def _customer_eligible_for_merchant_payout(doc: dict) -> bool:
+    return doc.get("status") not in (
         CustomerStatus.inactive.value,
         CustomerStatus.pending.value,
         CustomerStatus.rejected.value,
-    ):
-        return 0.0
-    months = int(doc.get("months_count") or 0)
-    monthly = float(doc.get("monthly_payment") or 0)
-    first_due_raw = doc.get("first_due_date")
-    if first_due_raw is None or months <= 0:
-        return 0.0
-    financed = float(doc.get("financed_amount") or 0)
-    return installment_due_in_month(
-        first_due=as_date(first_due_raw),
-        months_count=months,
-        monthly_payment=monthly,
-        financed_amount=financed if financed > 0 else monthly * months,
-        month=month,
     )
 
 
-def _month_due_total(customers: list[dict], month: date) -> tuple[float, int]:
-    total = 0.0
-    count = 0
-    for doc in customers:
-        due = _customer_due_in_month(doc, month)
-        if due > 0:
-            total += due
-            count += 1
-    return round(total, 2), count
+def _customer_lump_payout(doc: dict) -> tuple[date | None, float]:
+    """دفعة نقدية واحدة للتاجر = المبلغ الممول، مستحقة يوم 1 من شهر first_due."""
+    if not _customer_eligible_for_merchant_payout(doc):
+        return None, 0.0
+    first_due_raw = doc.get("first_due_date")
+    if first_due_raw is None:
+        return None, 0.0
+    first_due = as_date(first_due_raw)
+    due_month = date(first_due.year, first_due.month, 1)
+    monthly = float(doc.get("monthly_payment") or 0)
+    months = int(doc.get("months_count") or 0)
+    financed = float(doc.get("financed_amount") or 0)
+    if financed <= 0 and monthly > 0 and months > 0:
+        financed = round(monthly * months, 2)
+    if financed <= 0:
+        return due_month, 0.0
+    return due_month, round(financed, 2)
 
 
-def _earliest_due_month(customers: list[dict], fallback: date) -> date:
-    earliest: date | None = None
-    for doc in customers:
-        raw = doc.get("first_due_date")
-        if raw is None:
-            continue
-        d = as_date(raw)
-        start = date(d.year, d.month, 1)
-        if earliest is None or start < earliest:
-            earliest = start
-    if earliest is None:
-        return date(fallback.year, fallback.month, 1)
-    return earliest
-
-
-async def _settled_by_month(
+async def _total_settled(
     db: AsyncIOMotorDatabase,
     merchant_id: ObjectId,
-) -> dict[str, float]:
-    cursor = db.merchant_settlements.find({"merchant_id": merchant_id})
-    result: dict[str, float] = {}
-    async for doc in cursor:
-        key = str(doc.get("year_month") or "")
-        if not key:
-            continue
-        result[key] = float(doc.get("amount") or 0)
-    return result
+) -> float:
+    pipe = [
+        {"$match": {"merchant_id": merchant_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]
+    result = await db.merchant_settlements.aggregate(pipe).to_list(1)
+    return round(float(result[0]["total"]) if result else 0.0, 2)
 
 
 async def _outstanding_dues(
@@ -96,40 +68,45 @@ async def _outstanding_dues(
     today: date | None = None,
     created_at: date | datetime | None = None,
 ) -> dict:
+    """مستحقات التاجر: دفعة نقدية واحدة لكل زبون في يوم 1 من الشهر التالي لاعتماده.
+
+    لا تُقسَّم على أشهر خطة الزبون. أي تسويات سابقة تُحسب من إجمالي
+    merchant_settlements مقابل مجموع المبالغ المستحقة حتى اليوم.
+    """
     today = today or date.today()
     current = date(today.year, today.month, 1)
-    fallback = as_date(created_at) if created_at else current
-    start = _earliest_due_month(customers, fallback)
-    if start > current:
-        start = current
 
-    settled_map = await _settled_by_month(db, merchant_id)
-    outstanding = 0.0
-    carried = 0.0
-    current_due, current_count = _month_due_total(customers, current)
-    current_key = month_key(current)
-    current_settled = settled_map.get(current_key, 0.0)
+    previous_entitlement = 0.0
+    current_entitlement = 0.0
+    due_count = 0
 
-    for month in iter_months(start, current):
-        due, _ = _month_due_total(customers, month)
-        key = month_key(month)
-        settled = settled_map.get(key, 0.0)
-        unpaid = round(max(due - settled, 0.0), 2)
-        if unpaid <= 0:
+    for doc in customers:
+        due_month, amount = _customer_lump_payout(doc)
+        if due_month is None or amount <= 0:
             continue
-        outstanding += unpaid
-        if key != current_key:
-            carried += unpaid
+        if due_month > current:
+            continue
+        due_count += 1
+        if due_month == current:
+            current_entitlement += amount
+        else:
+            previous_entitlement += amount
 
-    outstanding = round(outstanding, 2)
-    carried = round(carried, 2)
-    confirmed = outstanding <= 0.01 and (
-        current_due <= 0.01 or current_settled + 0.01 >= current_due
-    )
+    previous_entitlement = round(previous_entitlement, 2)
+    current_entitlement = round(current_entitlement, 2)
+    entitlement = round(previous_entitlement + current_entitlement, 2)
+    total_settled = await _total_settled(db, merchant_id)
+
+    settled_to_prev = min(total_settled, previous_entitlement)
+    carried = round(max(previous_entitlement - settled_to_prev, 0.0), 2)
+    settled_left = round(max(total_settled - settled_to_prev, 0.0), 2)
+    current_unpaid = round(max(current_entitlement - settled_left, 0.0), 2)
+    outstanding = round(carried + current_unpaid, 2)
+    confirmed = entitlement <= 0.01 or outstanding <= 0.01
 
     return {
         "due_this_month_amount": outstanding,
-        "due_this_month_count": current_count,
+        "due_this_month_count": due_count if outstanding > 0.01 else 0,
         "due_confirmed_this_month": confirmed,
         "due_carried_amount": carried,
     }
@@ -146,6 +123,7 @@ async def _merchant_stats(
         "total_amounts": 0.0,
         "bank_amounts": 0.0,
         "platform_amounts": 0.0,
+        "investor_amounts": 0.0,
         "financed_amounts": 0.0,
         "paid_amounts": 0.0,
         "remaining_amounts": 0.0,
@@ -168,12 +146,14 @@ async def _merchant_stats(
     total_amounts = 0.0
     bank_amounts = 0.0
     platform_amounts = 0.0
+    investor_amounts = 0.0
     financed_amounts = 0.0
 
     for doc in counted:
         total_amounts += float(doc.get("total_amount") or 0)
         bank_amounts += float(doc.get("bank_amount") or 0)
         platform_amounts += float(doc.get("platform_amount") or 0)
+        investor_amounts += float(doc.get("investor_amount") or 0)
         financed_amounts += float(doc.get("financed_amount") or 0)
 
     customer_ids = [doc["_id"] for doc in counted]
@@ -195,6 +175,7 @@ async def _merchant_stats(
         "total_amounts": round(total_amounts, 2),
         "bank_amounts": round(bank_amounts, 2),
         "platform_amounts": round(platform_amounts, 2),
+        "investor_amounts": round(investor_amounts, 2),
         "financed_amounts": round(financed_amounts, 2),
         "paid_amounts": round(paid, 2),
         "remaining_amounts": round(max(financed_amounts - paid, 0), 2),
@@ -206,16 +187,15 @@ async def dashboard_due_this_month(
     db: AsyncIOMotorDatabase,
     user: UserOut,
 ) -> tuple[float, int]:
-    """المبالغ الواجب تسديدها هذا الشهر.
+    """المبالغ الواجب تسديدها للتاجر هذا الشهر.
 
     الحساب من الباكند:
-    - لكل تاجر: مجموع أقساط الخطط النشطة المستحقة لكل شهر
-      (من أول شهر تقسيط حتى الشهر الحالي) ناقص ما تم تأكيده في
-      merchant_settlements.
-    - يستثنى pending/rejected، والخطط inactive لا تولّد استحقاق.
-    - التاجر: مبلغ مستحقاته الظاهرة + عدد الخطط المستحقة هذا الشهر.
-    - المدير: مجموع المستحقات غير المسددة لكل التجار + عدد الخطط
-      المستحقة هذا الشهر لدى التجار غير المسددين.
+    - لكل زبون معتمد: دفعة نقدية واحدة = المبلغ الممول (بعد نسب المصرف/
+      المنصة/المستثمر)، مستحقة يوم 1 من الشهر التالي لاعتماد الخطة.
+    - لا تُقسَّم مستحقات التاجر على أشهر خطة الزبون.
+    - يستثنى pending/rejected/inactive.
+    - التاجر: مجموع دفعاته النقدية غير المؤكدة + عدد الخطط المستحقة.
+    - المدير: مجموع المستحقات غير المسددة لكل التجار.
     """
     if user.role == "merchant":
         oid = _oid(user.id)
@@ -264,6 +244,7 @@ async def serialize_merchant(db: AsyncIOMotorDatabase, doc: dict) -> MerchantOut
         role="merchant",
         bank_percent=float(doc.get("bank_percent") or 0),
         platform_percent=float(doc.get("platform_percent") or 0),
+        investor_percent=float(doc.get("investor_percent") or 0),
         active=bool(doc.get("active", True)),
         created_at=doc.get("created_at", datetime.now(timezone.utc)),
         **stats,
@@ -331,6 +312,7 @@ async def create_merchant(db: AsyncIOMotorDatabase, payload: MerchantCreate) -> 
         "active": True,
         "bank_percent": float(payload.bank_percent),
         "platform_percent": float(payload.platform_percent),
+        "investor_percent": float(payload.investor_percent),
         "salt": salt,
         "password_hash": hash_password(payload.password, salt),
         "created_at": now,
@@ -367,6 +349,8 @@ async def update_merchant(
         updates["bank_percent"] = float(raw["bank_percent"])
     if "platform_percent" in raw and raw["platform_percent"] is not None:
         updates["platform_percent"] = float(raw["platform_percent"])
+    if "investor_percent" in raw and raw["investor_percent"] is not None:
+        updates["investor_percent"] = float(raw["investor_percent"])
     if "active" in raw and raw["active"] is not None:
         updates["active"] = bool(raw["active"])
     if "password" in raw and raw["password"]:
@@ -375,11 +359,16 @@ async def update_merchant(
         updates["password_hash"] = hash_password(raw["password"], salt)
 
     bank = float(updates.get("bank_percent", existing.get("bank_percent") or 0))
-    platform = float(updates.get("platform_percent", existing.get("platform_percent") or 0))
-    if bank + platform >= 100:
+    platform = float(
+        updates.get("platform_percent", existing.get("platform_percent") or 0)
+    )
+    investor = float(
+        updates.get("investor_percent", existing.get("investor_percent") or 0)
+    )
+    if bank + platform + investor >= 100:
         raise HTTPException(
             status_code=400,
-            detail="مجموع نسبة المصرف ونسبة المنصة يجب أن يكون أقل من 100",
+            detail="مجموع نسبة المصرف والمنصة والمستثمر يجب أن يكون أقل من 100",
         )
 
     if updates:
@@ -414,55 +403,51 @@ async def confirm_merchant_dues(
 
     await apply_due_payments(db)
     customers = await db.customers.find({"merchant_id": oid}).to_list(None)
-    today = date.today()
-    current = date(today.year, today.month, 1)
-    fallback = as_date(doc.get("created_at") or today)
-    start = _earliest_due_month(customers, fallback)
-    if start > current:
-        start = current
-
-    settled_map = await _settled_by_month(db, oid)
-    now = datetime.now(timezone.utc)
-    total_confirmed = 0.0
-    months_updated = 0
-
-    for month in iter_months(start, current):
-        due, _ = _month_due_total(customers, month)
-        key = month_key(month)
-        already = settled_map.get(key, 0.0)
-        unpaid = round(max(due - already, 0.0), 2)
-        if unpaid <= 0.01:
-            continue
-        await db.merchant_settlements.update_one(
-            {"merchant_id": oid, "year_month": key},
-            {
-                "$set": {
-                    "merchant_id": oid,
-                    "year_month": key,
-                    "amount": round(due, 2),
-                    "confirmed_at": now,
-                    "confirmed_by": _oid(user.id),
-                    "updated_at": now,
-                },
-                "$setOnInsert": {"created_at": now},
-            },
-            upsert=True,
-        )
-        total_confirmed += unpaid
-        months_updated += 1
-
-    if months_updated == 0:
+    dues = await _outstanding_dues(
+        db,
+        oid,
+        customers,
+        created_at=doc.get("created_at"),
+    )
+    unpaid = float(dues["due_this_month_amount"])
+    if unpaid <= 0.01:
         raise HTTPException(
             status_code=400,
             detail="لا توجد مستحقات معلقة لتأكيدها هذا الشهر",
         )
+
+    today = date.today()
+    current = date(today.year, today.month, 1)
+    key = month_key(current)
+    now = datetime.now(timezone.utc)
+    existing_settlement = await db.merchant_settlements.find_one(
+        {"merchant_id": oid, "year_month": key}
+    )
+    already = float((existing_settlement or {}).get("amount") or 0)
+    new_amount = round(already + unpaid, 2)
+
+    await db.merchant_settlements.update_one(
+        {"merchant_id": oid, "year_month": key},
+        {
+            "$set": {
+                "merchant_id": oid,
+                "year_month": key,
+                "amount": new_amount,
+                "confirmed_at": now,
+                "confirmed_by": _oid(user.id),
+                "updated_at": now,
+            },
+            "$setOnInsert": {"created_at": now},
+        },
+        upsert=True,
+    )
 
     await db.users.update_one(
         {"_id": oid},
         {
             "$set": {
                 "last_dues_confirmed_at": now,
-                "last_dues_confirmed_amount": round(total_confirmed, 2),
+                "last_dues_confirmed_amount": round(unpaid, 2),
                 "updated_at": now,
             }
         },

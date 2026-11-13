@@ -9,11 +9,13 @@ class Merchant {
     required this.masterCard,
     required this.bankPercent,
     required this.platformPercent,
+    this.investorPercent = 0,
     required this.active,
     required this.customersCount,
     required this.totalAmounts,
     required this.bankAmounts,
     required this.platformAmounts,
+    this.investorAmounts = 0,
     required this.financedAmounts,
     required this.paidAmounts,
     required this.remainingAmounts,
@@ -33,11 +35,13 @@ class Merchant {
   final String masterCard;
   final double bankPercent;
   final double platformPercent;
+  final double investorPercent;
   final bool active;
   final int customersCount;
   final double totalAmounts;
   final double bankAmounts;
   final double platformAmounts;
+  final double investorAmounts;
   final double financedAmounts;
   final double paidAmounts;
   final double remainingAmounts;
@@ -58,11 +62,13 @@ class Merchant {
       masterCard: (json['master_card'] as String?) ?? '',
       bankPercent: (json['bank_percent'] as num).toDouble(),
       platformPercent: (json['platform_percent'] as num).toDouble(),
+      investorPercent: (json['investor_percent'] as num?)?.toDouble() ?? 0,
       active: json['active'] as bool? ?? true,
       customersCount: json['customers_count'] as int? ?? 0,
       totalAmounts: (json['total_amounts'] as num?)?.toDouble() ?? 0,
       bankAmounts: (json['bank_amounts'] as num?)?.toDouble() ?? 0,
       platformAmounts: (json['platform_amounts'] as num?)?.toDouble() ?? 0,
+      investorAmounts: (json['investor_amounts'] as num?)?.toDouble() ?? 0,
       financedAmounts: (json['financed_amounts'] as num?)?.toDouble() ?? 0,
       paidAmounts: (json['paid_amounts'] as num?)?.toDouble() ?? 0,
       remainingAmounts: (json['remaining_amounts'] as num?)?.toDouble() ?? 0,

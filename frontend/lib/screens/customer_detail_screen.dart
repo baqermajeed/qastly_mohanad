@@ -735,6 +735,16 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         const SizedBox(width: 10),
         Expanded(
           child: _statCard(
+            label: 'نسبة المستثمر',
+            value: '${c.investorPercent}%  •  ${money(c.investorAmount)} د.ع',
+            icon: Icons.savings_outlined,
+            background: const Color(0xFFF7EFDC),
+            iconColor: const Color(0xFFC38508),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
             label: 'المبلغ بعد النسب',
             value: '${money(c.financedAmount)} د.ع',
             icon: Icons.pie_chart_outline,

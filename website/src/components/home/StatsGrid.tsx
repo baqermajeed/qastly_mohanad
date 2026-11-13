@@ -109,7 +109,7 @@ export function StatsGrid({
       : variant === "admin"
       ? [
           {
-            title: "المبالغ الواجب تسديدها هذا الشهر",
+            title: "دفعات التجار النقدية هذا الشهر",
             value: money(stats.due_this_month_amount ?? 0),
             tone: "gold" as const,
           },
@@ -122,6 +122,11 @@ export function StatsGrid({
             title: "عمولة المصرف",
             value: money(stats.bank_amounts),
             tone: "gold" as const,
+          },
+          {
+            title: "نسبة المستثمرين",
+            value: money(stats.investor_commission_amounts ?? 0),
+            tone: "mint" as const,
           },
           {
             title: "إجمالي الخطط",
@@ -226,7 +231,7 @@ export function StatsGrid({
             tone: "white" as const,
           },
           {
-            title: "مستحقاتك هذا الشهر",
+            title: "دفعتك النقدية هذا الشهر",
             value: money(stats.due_this_month_amount ?? 0),
             tone: "gold" as const,
           },

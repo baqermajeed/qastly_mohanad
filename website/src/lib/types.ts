@@ -14,6 +14,7 @@ export type AppUser = {
   governorate?: string;
   bank_percent?: number;
   platform_percent?: number;
+  investor_percent?: number;
   active?: boolean;
 };
 
@@ -41,8 +42,10 @@ export type Customer = {
   registration_date: string;
   bank_percent?: number;
   platform_percent?: number;
+  investor_percent?: number;
   bank_amount?: number;
   platform_amount?: number;
+  investor_amount?: number;
   financed_amount?: number;
   monthly_payment: number;
   paid_amount: number;
@@ -67,6 +70,7 @@ export type DashboardStats = {
   remaining_amounts: number;
   bank_amounts: number;
   platform_amounts: number;
+  investor_commission_amounts?: number;
   financed_amounts: number;
   merchants_count: number;
   due_this_month_amount?: number;
@@ -108,11 +112,13 @@ export type Merchant = {
   master_card: string;
   bank_percent: number;
   platform_percent: number;
+  investor_percent?: number;
   active: boolean;
   customers_count: number;
   total_amounts: number;
   bank_amounts: number;
   platform_amounts: number;
+  investor_amounts?: number;
   financed_amounts: number;
   paid_amounts: number;
   remaining_amounts: number;

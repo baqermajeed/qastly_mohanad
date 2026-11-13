@@ -13,6 +13,7 @@ class UserOut(BaseModel):
     role: str = "merchant"
     bank_percent: float | None = None
     platform_percent: float | None = None
+    investor_percent: float | None = None
     active: bool = True
 
 

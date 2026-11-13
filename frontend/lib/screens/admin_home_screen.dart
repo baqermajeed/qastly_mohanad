@@ -491,6 +491,14 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
+                title: 'نسبة المستثمرين',
+                value: money(stats.investorCommissionAmounts),
+                background: AppTheme.cardMint,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardStatCard(
                 title: 'إجمالي الخطط',
                 value: money(stats.totalAmounts),
                 background: AppTheme.cardNavy,
@@ -507,7 +515,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'المبالغ الواجب تسديدها هذا الشهر',
+                title: 'دفعات التجار النقدية هذا الشهر',
                 value: money(stats.dueThisMonthAmount),
                 background: AppTheme.cardGold,
               ),
@@ -927,18 +935,19 @@ class _MerchantsTable extends StatelessWidget {
   final int? total;
 
   static const _headers = <(int, String)>[
-    (5, '#'),
-    (8, ''),
-    (14, 'اسم التاجر'),
-    (12, 'رقم هاتف'),
-    (10, 'محافظة'),
-    (10, 'المستخدم'),
-    (9, 'نسبة المصرف'),
-    (9, 'نسبة المنصة'),
-    (8, 'الزبائن'),
-    (11, 'عمولة المنصة'),
-    (12, 'واتساب'),
-    (10, 'تعديل'),
+    (4, '#'),
+    (7, ''),
+    (12, 'اسم التاجر'),
+    (10, 'رقم هاتف'),
+    (9, 'محافظة'),
+    (9, 'المستخدم'),
+    (8, 'المصرف'),
+    (8, 'المنصة'),
+    (8, 'المستثمر'),
+    (7, 'الزبائن'),
+    (10, 'عمولة المنصة'),
+    (10, 'واتساب'),
+    (8, 'تعديل'),
   ];
 
   @override
@@ -1076,7 +1085,7 @@ class _MerchantRow extends StatelessWidget {
             child: Row(
               children: [
                 _cell(
-                  flex: 5,
+                  flex: 4,
                   child: Opacity(
                     opacity: 0.4,
                     child: Text(
@@ -1091,7 +1100,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 8,
+                  flex: 7,
                   child: Center(
                     child: SvgPicture.asset(
                       AppAssets.userAvatar,
@@ -1101,7 +1110,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 14,
+                  flex: 12,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1145,7 +1154,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 12,
+                  flex: 10,
                   child: Text(
                     merchant.phone.isEmpty ? '—' : merchant.phone,
                     textAlign: TextAlign.center,
@@ -1159,7 +1168,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 10,
+                  flex: 9,
                   child: Text(
                     merchant.governorate.isEmpty ? '—' : merchant.governorate,
                     textAlign: TextAlign.center,
@@ -1169,7 +1178,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 10,
+                  flex: 9,
                   child: Text(
                     merchant.username,
                     textAlign: TextAlign.center,
@@ -1177,7 +1186,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 9,
+                  flex: 8,
                   child: Text(
                     '${merchant.bankPercent}%',
                     textAlign: TextAlign.center,
@@ -1185,7 +1194,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 9,
+                  flex: 8,
                   child: Text(
                     '${merchant.platformPercent}%',
                     textAlign: TextAlign.center,
@@ -1195,13 +1204,21 @@ class _MerchantRow extends StatelessWidget {
                 _cell(
                   flex: 8,
                   child: Text(
+                    '${merchant.investorPercent}%',
+                    textAlign: TextAlign.center,
+                    style: cellStyle,
+                  ),
+                ),
+                _cell(
+                  flex: 7,
+                  child: Text(
                     '${merchant.customersCount}',
                     textAlign: TextAlign.center,
                     style: cellStyle,
                   ),
                 ),
                 _cell(
-                  flex: 11,
+                  flex: 10,
                   child: Text(
                     money(merchant.platformAmounts),
                     textAlign: TextAlign.center,
@@ -1209,7 +1226,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 12,
+                  flex: 10,
                   child: Center(
                     child: SizedBox(
                       height: 34,
@@ -1240,7 +1257,7 @@ class _MerchantRow extends StatelessWidget {
                   ),
                 ),
                 _cell(
-                  flex: 10,
+                  flex: 8,
                   child: Center(
                     child: SizedBox(
                       height: 34,

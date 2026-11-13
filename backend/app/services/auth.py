@@ -37,6 +37,7 @@ def user_out(doc: dict) -> UserOut:
         role=doc.get("role", "merchant"),
         bank_percent=doc.get("bank_percent"),
         platform_percent=doc.get("platform_percent"),
+        investor_percent=doc.get("investor_percent"),
         active=bool(doc.get("active", True)),
     )
 

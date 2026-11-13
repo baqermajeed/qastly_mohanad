@@ -107,7 +107,8 @@ export function MerchantCard({ merchant, index, onOpen }: Props) {
             النسب
           </div>
           <div className="text-[12px] font-extrabold text-[var(--basic)]">
-            {merchant.bank_percent}% / {merchant.platform_percent}%
+            {merchant.bank_percent}% / {merchant.platform_percent}% /{" "}
+            {merchant.investor_percent ?? 0}%
           </div>
         </div>
       </div>

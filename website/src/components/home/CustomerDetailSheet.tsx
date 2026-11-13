@@ -360,6 +360,14 @@ export function CustomerDetailSheet({
                     <span>نسبة المنصة ({customer.platform_percent ?? 0}%)</span>
                     <strong>{money(customer.platform_amount ?? 0)} د.ع</strong>
                   </div>
+                  <div className="cd-split-row">
+                    <span>
+                      نسبة المستثمر ({customer.investor_percent ?? 0}%)
+                    </span>
+                    <strong>
+                      {money(customer.investor_amount ?? 0)} د.ع
+                    </strong>
+                  </div>
                   <div className="cd-split-row highlight">
                     <span>المبلغ بعد النسب</span>
                     <strong>{money(customer.financed_amount ?? 0)} د.ع</strong>

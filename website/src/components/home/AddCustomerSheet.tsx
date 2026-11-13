@@ -29,6 +29,7 @@ export function AddCustomerSheet({ open, onClose, onCreated }: Props) {
   const user = getStoredUser();
   const bankPercent = user?.bank_percent ?? 0;
   const platformPercent = user?.platform_percent ?? 0;
+  const investorPercent = user?.investor_percent ?? 0;
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -52,10 +53,15 @@ export function AddCustomerSheet({ open, onClose, onCreated }: Props) {
   const months = Number.parseInt(monthsCount.trim(), 10);
   const bankAmount = total == null ? null : (total * bankPercent) / 100;
   const platformAmount = total == null ? null : (total * platformPercent) / 100;
+  const investorAmount =
+    total == null ? null : (total * investorPercent) / 100;
   const financed =
-    total == null || bankAmount == null || platformAmount == null
+    total == null ||
+    bankAmount == null ||
+    platformAmount == null ||
+    investorAmount == null
       ? null
-      : total - bankAmount - platformAmount;
+      : total - bankAmount - platformAmount - investorAmount;
   const monthly =
     financed == null || !Number.isFinite(months) || months <= 0
       ? null
@@ -268,6 +274,18 @@ export function AddCustomerSheet({ open, onClose, onCreated }: Props) {
                     platformAmount == null
                       ? "0 د.ع"
                       : `${money(platformAmount)} د.ع`
+                  }
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold">
+                  نسبة المستثمر ({investorPercent}%)
+                </label>
+                <ReadonlyBox
+                  value={
+                    investorAmount == null
+                      ? "0 د.ع"
+                      : `${money(investorAmount)} د.ع`
                   }
                 />
               </div>

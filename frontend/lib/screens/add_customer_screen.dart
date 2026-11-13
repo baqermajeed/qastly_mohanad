@@ -106,6 +106,7 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
 
   double get _bankPercent => widget.user?.bankPercent ?? 0;
   double get _platformPercent => widget.user?.platformPercent ?? 0;
+  double get _investorPercent => widget.user?.investorPercent ?? 0;
 
   double? get _totalAmount => parseMoney(_total.text);
 
@@ -121,12 +122,21 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
     return total * _platformPercent / 100;
   }
 
+  double? get _investorAmount {
+    final total = _totalAmount;
+    if (total == null) return null;
+    return total * _investorPercent / 100;
+  }
+
   double? get _financed {
     final total = _totalAmount;
     final bank = _bankAmount;
     final platform = _platformAmount;
-    if (total == null || bank == null || platform == null) return null;
-    return total - bank - platform;
+    final investor = _investorAmount;
+    if (total == null || bank == null || platform == null || investor == null) {
+      return null;
+    }
+    return total - bank - platform - investor;
   }
 
   double? get _monthly {
@@ -386,6 +396,17 @@ class _AddCustomerDialogState extends State<AddCustomerDialog> {
                                       _platformAmount == null
                                           ? '0 د.ع'
                                           : '${money(_platformAmount!)} د.ع',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: _labeledField(
+                                    label: 'نسبة المستثمر ($_investorPercent%)',
+                                    child: _readonlyBox(
+                                      _investorAmount == null
+                                          ? '0 د.ع'
+                                          : '${money(_investorAmount!)} د.ع',
                                     ),
                                   ),
                                 ),

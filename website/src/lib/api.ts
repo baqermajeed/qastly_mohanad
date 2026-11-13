@@ -256,6 +256,7 @@ export async function createMerchant(payload: {
   master_card: string;
   bank_percent: number;
   platform_percent: number;
+  investor_percent?: number;
 }) {
   return request<Merchant>("/api/merchants", {
     method: "POST",
@@ -278,6 +279,7 @@ export async function updateMerchant(
     password?: string;
     bank_percent?: number;
     platform_percent?: number;
+    investor_percent?: number;
     active?: boolean;
   },
 ) {

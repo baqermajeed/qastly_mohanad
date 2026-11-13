@@ -59,6 +59,7 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
   final _password = TextEditingController();
   final _bank = TextEditingController();
   final _platform = TextEditingController();
+  final _investor = TextEditingController();
   String? _governorate;
   bool _saving = false;
 
@@ -79,9 +80,12 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
       _username.text = m.username;
       _bank.text = m.bankPercent.toString();
       _platform.text = m.platformPercent.toString();
+      _investor.text = m.investorPercent.toString();
       _governorate = _governorates.contains(m.governorate)
           ? m.governorate
           : (m.governorate.isEmpty ? null : m.governorate);
+    } else {
+      _investor.text = '0';
     }
   }
 
@@ -95,6 +99,7 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
     _password.dispose();
     _bank.dispose();
     _platform.dispose();
+    _investor.dispose();
     super.dispose();
   }
 
@@ -104,10 +109,15 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
 
     final bank = parseMoney(_bank.text);
     final platform = parseMoney(_platform.text);
-    if (bank == null || platform == null || bank + platform >= 100) {
+    final investor = parseMoney(_investor.text) ?? 0;
+    if (bank == null ||
+        platform == null ||
+        bank + platform + investor >= 100) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('مجموع نسبة المصرف ونسبة المنصة يجب أن يكون أقل من 100'),
+          content: Text(
+            'مجموع نسبة المصرف والمنصة والمستثمر يجب أن يكون أقل من 100',
+          ),
         ),
       );
       return;
@@ -126,6 +136,7 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
           password: _password.text.trim().isEmpty ? null : _password.text,
           bankPercent: bank,
           platformPercent: platform,
+          investorPercent: investor,
         );
       } else {
         await widget.api.createMerchant(
@@ -138,6 +149,7 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
           masterCard: _master.text.trim().replaceAll(' ', ''),
           bankPercent: bank,
           platformPercent: platform,
+          investorPercent: investor,
         );
       }
       if (!mounted) return;
@@ -185,7 +197,7 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'أدخل بيانات التاجر ونسب العمولة. تُثبَّت النسب على زبائنه الجدد.',
+                      'أدخل بيانات التاجر ونسب العمولة (مصرف / منصة / مستثمر). تُثبَّت على زبائنه الجدد.',
                       style: AppTheme.text(
                         fontSize: 13,
                         color: AppTheme.basic.withValues(alpha: 0.65),
@@ -360,6 +372,21 @@ class _AddMerchantDialogState extends State<AddMerchantDialog> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 12),
+                        _field(
+                          controller: _investor,
+                          label: 'نسبة المستثمر %',
+                          hint: 'مثلاً 2',
+                          keyboard: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                          validator: _percentValidator,
                         ),
                       ],
                     ),

@@ -214,6 +214,7 @@ class ApiService {
     required String masterCard,
     required double bankPercent,
     required double platformPercent,
+    double investorPercent = 0,
   }) async {
     final res = await _send(
       () => _client.post(
@@ -229,6 +230,7 @@ class ApiService {
           'master_card': masterCard,
           'bank_percent': bankPercent,
           'platform_percent': platformPercent,
+          'investor_percent': investorPercent,
         }),
       ),
     );
@@ -256,6 +258,7 @@ class ApiService {
     String? password,
     double? bankPercent,
     double? platformPercent,
+    double? investorPercent,
     bool? active,
   }) async {
     final body = <String, dynamic>{
@@ -267,6 +270,7 @@ class ApiService {
       if (password != null && password.isNotEmpty) 'password': password,
       if (bankPercent != null) 'bank_percent': bankPercent,
       if (platformPercent != null) 'platform_percent': platformPercent,
+      if (investorPercent != null) 'investor_percent': investorPercent,
       if (active != null) 'active': active,
     };
     final res = await _send(

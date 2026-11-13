@@ -151,7 +151,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
             style: AppTheme.text(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           content: Text(
-            'سيتم تعليم التاجر مستلماً لمستحقاته الظاهرة (${money(_merchant.dueThisMonthAmount)} د.ع) لهذا الشهر${_merchant.dueCarriedAmount > 0 ? ' مع المبالغ المرحلة من أشهر سابقة' : ''}.',
+            'سيتم تعليم التاجر مستلماً لدفعته النقدية الظاهرة (${money(_merchant.dueThisMonthAmount)} د.ع)${_merchant.dueCarriedAmount > 0 ? ' مع المبالغ المرحلة من أشهر سابقة' : ''}. مستحقات التاجر تُصرف دفعة واحدة نقداً يوم 1 من الشهر التالي لاعتماد الزبون.',
             style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           actions: [
@@ -387,7 +387,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'معلومات التاجر وخطط الأقساط وإحصائياته',
+                  'معلومات التاجر وخطط زبائنه وإحصائياته',
                   style: AppTheme.text(
                     color: AppTheme.basic.withValues(alpha: 0.7),
                     fontSize: 14,
@@ -634,6 +634,17 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
         const SizedBox(width: 10),
         Expanded(
           child: _statCard(
+            label: 'نسبة المستثمر',
+            value:
+                '${_merchant.investorPercent}%  •  ${money(_merchant.investorAmounts)} د.ع',
+            icon: Icons.savings_outlined,
+            background: const Color(0xFFF7EFDC),
+            iconColor: const Color(0xFFC38508),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
             label: 'المسدد من الأقساط',
             value: '${money(_merchant.paidAmounts)} د.ع',
             icon: Icons.payments_outlined,
@@ -660,8 +671,8 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
     final hasAmount = _merchant.dueThisMonthAmount > 0;
     final carried = _merchant.dueCarriedAmount;
     final label = carried > 0
-        ? 'مستحقات معلّقة (${_merchant.dueThisMonthCount} خطة) • مرحّل ${money(carried)} د.ع'
-        : 'مبلغ الدفعات المستحقة هذا الشهر (${_merchant.dueThisMonthCount} خطة)';
+        ? 'دفعة نقدية معلّقة (${_merchant.dueThisMonthCount} زبون) • مرحّل ${money(carried)} د.ع'
+        : 'دفعة نقدية مستحقة يوم 1 (${_merchant.dueThisMonthCount} زبون)';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -801,7 +812,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
             child: Row(
               children: [
                 Text(
-                  'خطط الأقساط',
+                  'خطط الزبائن',
                   style: AppTheme.text(
                     color: _titleBlue,
                     fontSize: 16,
@@ -832,7 +843,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
             child: _plans.isEmpty
                 ? Center(
                     child: Text(
-                      'لا توجد خطط أقساط لهذا التاجر بعد',
+                      'لا توجد خطط زبائن لهذا التاجر بعد',
                       style: AppTheme.text(
                         color: AppTheme.basic.withValues(alpha: 0.5),
                         fontSize: 14,
@@ -884,10 +895,11 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
           _headerCell('الزبون', flex: 3),
           _headerCell('الهاتف', flex: 3),
           _headerCell('المبلغ الكلي', flex: 3),
-          _headerCell('الأشهر', flex: 2),
-          _headerCell('أشهر متبقية', flex: 2),
-          _headerCell('القسط الشهري', flex: 3),
-          _headerCell('المتبقي', flex: 3),
+          _headerCell('مستحق التاجر', flex: 3),
+          _headerCell('صرف التاجر', flex: 3),
+          _headerCell('أشهر الزبون', flex: 2),
+          _headerCell('قسط الزبون', flex: 3),
+          _headerCell('المتبقي على الزبون', flex: 3),
           _headerCell('الحالة', flex: 2),
           _headerCell('التسجيل', flex: 3),
         ],
@@ -986,9 +998,19 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
                 ),
               ),
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: Text(
-                  '${customer.monthsCount}',
+                  money(customer.financedAmount),
+                  textAlign: TextAlign.center,
+                  style: AppTheme.text(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  customer.firstDueDate == null
+                      ? '—'
+                      : _dateFmt.format(customer.firstDueDate!),
                   textAlign: TextAlign.center,
                   style: AppTheme.text(fontSize: 13, fontWeight: FontWeight.w700),
                 ),
@@ -996,7 +1018,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
               Expanded(
                 flex: 2,
                 child: Text(
-                  '${customer.remainingMonths}',
+                  '${customer.monthsCount}',
                   textAlign: TextAlign.center,
                   style: AppTheme.text(fontSize: 13, fontWeight: FontWeight.w700),
                 ),

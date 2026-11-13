@@ -126,8 +126,10 @@ async def _serialize_customer(
         "registration_date": as_date(doc["registration_date"]),
         "bank_percent": float(doc.get("bank_percent") or 0),
         "platform_percent": float(doc.get("platform_percent") or 0),
+        "investor_percent": float(doc.get("investor_percent") or 0),
         "bank_amount": float(doc.get("bank_amount") or 0),
         "platform_amount": float(doc.get("platform_amount") or 0),
+        "investor_amount": float(doc.get("investor_amount") or 0),
         "financed_amount": financed,
         "monthly_payment": month_pay,
         "paid_amount": paid,
@@ -170,7 +172,8 @@ async def create_customer(
         raise HTTPException(status_code=403, detail="إضافة الزبائن متاحة للتاجر فقط")
     if user.bank_percent is None or user.platform_percent is None:
         raise HTTPException(status_code=400, detail="حساب التاجر بلا نسب عمولة، راجع مدير المنصة")
-    if user.bank_percent + user.platform_percent >= 100:
+    investor_percent = float(user.investor_percent or 0)
+    if user.bank_percent + user.platform_percent + investor_percent >= 100:
         raise HTTPException(status_code=400, detail="نسب العمولة غير صالحة")
 
     now = datetime.now(timezone.utc)
@@ -181,6 +184,7 @@ async def create_customer(
         months_count=int(payload.months_count),
         bank_percent=float(user.bank_percent),
         platform_percent=float(user.platform_percent),
+        investor_percent=investor_percent,
     )
     if plan["financed_amount"] <= 0:
         raise HTTPException(status_code=400, detail="المبلغ المتبقي للتقسيط يجب أن يكون أكبر من صفر")
@@ -198,8 +202,10 @@ async def create_customer(
         "registration_date": now,
         "bank_percent": float(user.bank_percent),
         "platform_percent": float(user.platform_percent),
+        "investor_percent": investor_percent,
         "bank_amount": plan["bank_amount"],
         "platform_amount": plan["platform_amount"],
+        "investor_amount": plan["investor_amount"],
         "financed_amount": plan["financed_amount"],
         "monthly_payment": plan["monthly_payment"],
         "first_due_date": datetime.combine(first_due, datetime.min.time()),
@@ -546,6 +552,9 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     remaining_amounts = round(sum(c.remaining_amount for c in counted), 2)
     bank_amounts = round(sum(c.bank_amount for c in counted), 2)
     platform_amounts = round(sum(c.platform_amount for c in counted), 2)
+    investor_commission_amounts = round(
+        sum(getattr(c, "investor_amount", 0) or 0 for c in counted), 2
+    )
     financed_amounts = round(sum(c.financed_amount for c in counted), 2)
     due_amount, due_count = await dashboard_due_this_month(db, user)
 
@@ -565,6 +574,7 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             remaining_amounts=remaining_amounts,
             bank_amounts=bank_amounts,
             platform_amounts=platform_amounts,
+            investor_commission_amounts=investor_commission_amounts,
             financed_amounts=financed_amounts,
             merchants_count=merchants,
             due_this_month_amount=due_amount,

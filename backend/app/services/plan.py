@@ -40,15 +40,20 @@ def split_plan(
     months_count: int,
     bank_percent: float,
     platform_percent: float,
+    investor_percent: float = 0,
 ) -> dict[str, float]:
     total = round(float(total_amount), 2)
     bank_amount = round(total * float(bank_percent) / 100.0, 2)
     platform_amount = round(total * float(platform_percent) / 100.0, 2)
-    financed_amount = round(total - bank_amount - platform_amount, 2)
+    investor_amount = round(total * float(investor_percent) / 100.0, 2)
+    financed_amount = round(
+        total - bank_amount - platform_amount - investor_amount, 2
+    )
     monthly_payment = round(financed_amount / months_count, 2)
     return {
         "bank_amount": bank_amount,
         "platform_amount": platform_amount,
+        "investor_amount": investor_amount,
         "financed_amount": financed_amount,
         "monthly_payment": monthly_payment,
     }

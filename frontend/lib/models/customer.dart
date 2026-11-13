@@ -104,8 +104,10 @@ class Customer {
     this.merchantName,
     this.bankPercent = 0,
     this.platformPercent = 0,
+    this.investorPercent = 0,
     this.bankAmount = 0,
     this.platformAmount = 0,
+    this.investorAmount = 0,
     this.financedAmount = 0,
     this.paymentsCount = 0,
     this.firstDueDate,
@@ -126,8 +128,10 @@ class Customer {
   final DateTime registrationDate;
   final double bankPercent;
   final double platformPercent;
+  final double investorPercent;
   final double bankAmount;
   final double platformAmount;
+  final double investorAmount;
   final double financedAmount;
   final double monthlyPayment;
   final double paidAmount;
@@ -156,8 +160,10 @@ class Customer {
       registrationDate: DateTime.parse(json['registration_date'] as String),
       bankPercent: (json['bank_percent'] as num?)?.toDouble() ?? 0,
       platformPercent: (json['platform_percent'] as num?)?.toDouble() ?? 0,
+      investorPercent: (json['investor_percent'] as num?)?.toDouble() ?? 0,
       bankAmount: (json['bank_amount'] as num?)?.toDouble() ?? 0,
       platformAmount: (json['platform_amount'] as num?)?.toDouble() ?? 0,
+      investorAmount: (json['investor_amount'] as num?)?.toDouble() ?? 0,
       financedAmount: (json['financed_amount'] as num?)?.toDouble() ?? 0,
       monthlyPayment: (json['monthly_payment'] as num).toDouble(),
       paidAmount: (json['paid_amount'] as num).toDouble(),
@@ -198,6 +204,7 @@ class DashboardStats {
     this.pendingCount = 0,
     this.bankAmounts = 0,
     this.platformAmounts = 0,
+    this.investorCommissionAmounts = 0,
     this.financedAmounts = 0,
     this.merchantsCount = 0,
     this.dueThisMonthAmount = 0,
@@ -221,6 +228,7 @@ class DashboardStats {
   final double remainingAmounts;
   final double bankAmounts;
   final double platformAmounts;
+  final double investorCommissionAmounts;
   final double financedAmounts;
   final int merchantsCount;
   final double dueThisMonthAmount;
@@ -245,6 +253,8 @@ class DashboardStats {
       remainingAmounts: (json['remaining_amounts'] as num).toDouble(),
       bankAmounts: (json['bank_amounts'] as num?)?.toDouble() ?? 0,
       platformAmounts: (json['platform_amounts'] as num?)?.toDouble() ?? 0,
+      investorCommissionAmounts:
+          (json['investor_commission_amounts'] as num?)?.toDouble() ?? 0,
       financedAmounts: (json['financed_amounts'] as num?)?.toDouble() ?? 0,
       merchantsCount: json['merchants_count'] as int? ?? 0,
       dueThisMonthAmount:

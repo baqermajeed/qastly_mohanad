@@ -401,7 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: DashboardStatCard(
-            title: 'مستحقاتك هذا الشهر',
+            title: 'دفعتك النقدية هذا الشهر',
             value: money(stats.dueThisMonthAmount),
             background: AppTheme.cardGold,
           ),

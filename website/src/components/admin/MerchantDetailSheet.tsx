@@ -117,7 +117,7 @@ export function MerchantDetailSheet({
   async function onConfirmDues() {
     if (!merchant || confirming || confirmed || dueAmount <= 0) return;
     const ok = window.confirm(
-      `تأكيد استلام مستحقات التاجر (${money(dueAmount)} د.ع) لهذا الشهر؟`,
+      `تأكيد صرف الدفعة النقدية للتاجر (${money(dueAmount)} د.ع)؟ مستحقات التاجر تُصرف دفعة واحدة يوم 1 من الشهر التالي لاعتماد الزبون.`,
     );
     if (!ok) return;
     setConfirming(true);
@@ -178,7 +178,7 @@ export function MerchantDetailSheet({
                 </svg>
               </span>
             </div>
-            <p>معلومات التاجر وخطط الأقساط وإحصائياته</p>
+            <p>معلومات التاجر وخطط زبائنه وإحصائياته</p>
           </div>
         </header>
 
@@ -298,6 +298,14 @@ export function MerchantDetailSheet({
                     <strong>{money(merchant.platform_amounts)} د.ع</strong>
                   </div>
                   <div className="cd-split-row">
+                    <span>
+                      نسبة المستثمر ({merchant.investor_percent ?? 0}%)
+                    </span>
+                    <strong>
+                      {money(merchant.investor_amounts ?? 0)} د.ع
+                    </strong>
+                  </div>
+                  <div className="cd-split-row">
                     <span>المسدد من الأقساط</span>
                     <strong>{money(merchant.paid_amounts)} د.ع</strong>
                   </div>
@@ -311,8 +319,8 @@ export function MerchantDetailSheet({
               <section className="cd-card" style={{ background: "#FFF4E5" }}>
                 <h5 className="cd-section-title" style={{ color: "#C38508" }}>
                   {carried > 0
-                    ? `مستحقات معلّقة (${merchant.due_this_month_count} خطة) • مرحّل ${money(carried)} د.ع`
-                    : `مبلغ الدفعات المستحقة هذا الشهر (${merchant.due_this_month_count} خطة)`}
+                    ? `دفعة نقدية معلّقة (${merchant.due_this_month_count} زبون) • مرحّل ${money(carried)} د.ع`
+                    : `دفعة نقدية مستحقة يوم 1 (${merchant.due_this_month_count} زبون)`}
                 </h5>
                 <div className="mb-3 text-[18px] font-extrabold text-[#0B3A5C]">
                   {money(dueAmount)} د.ع
@@ -335,11 +343,11 @@ export function MerchantDetailSheet({
 
               <section className="cd-card">
                 <div className="cd-payments-head">
-                  <h5 className="cd-section-title mb-0">خطط التاجر</h5>
+                  <h5 className="cd-section-title mb-0">خطط الزبائن</h5>
                   <span className="cd-count">{plans.length}</span>
                 </div>
                 {plans.length === 0 ? (
-                  <p className="cd-empty">لا توجد خطط لهذا التاجر</p>
+                  <p className="cd-empty">لا توجد خطط زبائن لهذا التاجر</p>
                 ) : (
                   <div className="space-y-2">
                     {plans.map((c) => (
@@ -360,6 +368,26 @@ export function MerchantDetailSheet({
                         <div className="grid grid-cols-2 gap-2 text-[12px]">
                           <div>
                             <div className="font-semibold text-[var(--basic)]/45">
+                              مستحق التاجر
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {money(c.financed_amount ?? 0)} د.ع
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
+                              صرف التاجر
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {c.first_due_date
+                                ? new Date(c.first_due_date).toLocaleDateString(
+                                    "ar-IQ",
+                                  )
+                                : "—"}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
                               الهاتف
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
@@ -368,7 +396,7 @@ export function MerchantDetailSheet({
                           </div>
                           <div>
                             <div className="font-semibold text-[var(--basic)]/45">
-                              المتبقي
+                              المتبقي على الزبون
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
                               {money(c.remaining_amount)} د.ع

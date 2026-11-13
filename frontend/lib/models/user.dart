@@ -6,6 +6,7 @@ class AppUser {
     this.role = 'merchant',
     this.bankPercent,
     this.platformPercent,
+    this.investorPercent,
     this.active = true,
   });
 
@@ -15,6 +16,7 @@ class AppUser {
   final String role;
   final double? bankPercent;
   final double? platformPercent;
+  final double? investorPercent;
   final bool active;
 
   bool get isAdmin => role == 'admin';
@@ -29,6 +31,7 @@ class AppUser {
       role: (json['role'] as String?) ?? 'merchant',
       bankPercent: (json['bank_percent'] as num?)?.toDouble(),
       platformPercent: (json['platform_percent'] as num?)?.toDouble(),
+      investorPercent: (json['investor_percent'] as num?)?.toDouble(),
       active: json['active'] as bool? ?? true,
     );
   }
@@ -40,6 +43,7 @@ class AppUser {
         'role': role,
         'bank_percent': bankPercent,
         'platform_percent': platformPercent,
+        'investor_percent': investorPercent,
         'active': active,
       };
 }

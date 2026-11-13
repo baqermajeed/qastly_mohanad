@@ -31,6 +31,7 @@ class MerchantCreate(BaseModel):
     master_card: str = Field(..., min_length=8, max_length=19)
     bank_percent: float = Field(..., ge=0, lt=100)
     platform_percent: float = Field(..., ge=0, lt=100)
+    investor_percent: float = Field(default=0, ge=0, lt=100)
 
     @field_validator("phone")
     @classmethod
@@ -44,8 +45,11 @@ class MerchantCreate(BaseModel):
 
     @model_validator(mode="after")
     def percents_must_leave_remainder(self) -> "MerchantCreate":
-        if self.bank_percent + self.platform_percent >= 100:
-            raise ValueError("مجموع نسبة المصرف ونسبة المنصة يجب أن يكون أقل من 100")
+        total = self.bank_percent + self.platform_percent + self.investor_percent
+        if total >= 100:
+            raise ValueError(
+                "مجموع نسبة المصرف والمنصة والمستثمر يجب أن يكون أقل من 100"
+            )
         return self
 
 
@@ -58,6 +62,7 @@ class MerchantUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=4, max_length=128)
     bank_percent: float | None = Field(default=None, ge=0, lt=100)
     platform_percent: float | None = Field(default=None, ge=0, lt=100)
+    investor_percent: float | None = Field(default=None, ge=0, lt=100)
     active: bool | None = None
 
     @field_validator("phone")
@@ -79,9 +84,13 @@ class MerchantUpdate(BaseModel):
         if (
             self.bank_percent is not None
             and self.platform_percent is not None
-            and self.bank_percent + self.platform_percent >= 100
+            and self.investor_percent is not None
+            and self.bank_percent + self.platform_percent + self.investor_percent
+            >= 100
         ):
-            raise ValueError("مجموع نسبة المصرف ونسبة المنصة يجب أن يكون أقل من 100")
+            raise ValueError(
+                "مجموع نسبة المصرف والمنصة والمستثمر يجب أن يكون أقل من 100"
+            )
         return self
 
 
@@ -96,11 +105,13 @@ class MerchantOut(BaseModel):
     role: str = "merchant"
     bank_percent: float
     platform_percent: float
+    investor_percent: float = 0
     active: bool = True
     customers_count: int = 0
     total_amounts: float = 0
     bank_amounts: float = 0
     platform_amounts: float = 0
+    investor_amounts: float = 0
     financed_amounts: float = 0
     paid_amounts: float = 0
     remaining_amounts: float = 0

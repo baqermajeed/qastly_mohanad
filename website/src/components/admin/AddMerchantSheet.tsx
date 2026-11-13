@@ -28,6 +28,7 @@ export function AddMerchantSheet({
   const [masterCard, setMasterCard] = useState("");
   const [bankPercent, setBankPercent] = useState("10");
   const [platformPercent, setPlatformPercent] = useState("5");
+  const [investorPercent, setInvestorPercent] = useState("0");
   const [active, setActive] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export function AddMerchantSheet({
       setMasterCard(merchant.master_card || "");
       setBankPercent(String(merchant.bank_percent ?? 0));
       setPlatformPercent(String(merchant.platform_percent ?? 0));
+      setInvestorPercent(String(merchant.investor_percent ?? 0));
       setActive(merchant.active);
     } else {
       setFullName("");
@@ -55,6 +57,7 @@ export function AddMerchantSheet({
       setMasterCard("");
       setBankPercent("10");
       setPlatformPercent("5");
+      setInvestorPercent("0");
       setActive(true);
     }
   }, [open, merchant]);
@@ -67,12 +70,17 @@ export function AddMerchantSheet({
 
     const bank = Number(bankPercent);
     const platform = Number(platformPercent);
-    if (!Number.isFinite(bank) || !Number.isFinite(platform)) {
+    const investor = Number(investorPercent);
+    if (
+      !Number.isFinite(bank) ||
+      !Number.isFinite(platform) ||
+      !Number.isFinite(investor)
+    ) {
       setError("أدخل نسب صحيحة");
       return;
     }
-    if (bank + platform >= 100) {
-      setError("مجموع نسبة المصرف والمنصة يجب أن يكون أقل من 100");
+    if (bank + platform + investor >= 100) {
+      setError("مجموع نسبة المصرف والمنصة والمستثمر يجب أن يكون أقل من 100");
       return;
     }
     if (!/^\d{11}$/.test(phone.trim())) {
@@ -99,6 +107,7 @@ export function AddMerchantSheet({
           master_card: masterCard.trim(),
           bank_percent: bank,
           platform_percent: platform,
+          investor_percent: investor,
           active,
           ...(password.trim() ? { password: password.trim() } : {}),
         });
@@ -113,6 +122,7 @@ export function AddMerchantSheet({
           master_card: masterCard.trim(),
           bank_percent: bank,
           platform_percent: platform,
+          investor_percent: investor,
         });
       }
       onSaved();
@@ -243,6 +253,14 @@ export function AddMerchantSheet({
               required
             />
           </div>
+          <input
+            className="field"
+            placeholder="نسبة المستثمر %"
+            value={investorPercent}
+            onChange={(e) => setInvestorPercent(e.target.value)}
+            inputMode="decimal"
+            required
+          />
 
           {editing ? (
             <label className="flex items-center gap-2 rounded-xl bg-[#F7FBFD] px-3 py-3 text-sm font-bold">

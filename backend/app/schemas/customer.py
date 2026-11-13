@@ -93,8 +93,10 @@ class CustomerOut(BaseModel):
     registration_date: date
     bank_percent: float
     platform_percent: float
+    investor_percent: float = 0
     bank_amount: float
     platform_amount: float
+    investor_amount: float = 0
     financed_amount: float
     monthly_payment: float
     paid_amount: float
