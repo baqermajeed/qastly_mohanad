@@ -27,6 +27,20 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
   String? _error;
   final _searchController = TextEditingController();
 
+  static const _fieldBorder = Color(0xFFD5E8F2);
+  static const _headers = <(int, String)>[
+    (5, '#'),
+    (12, 'المبلغ'),
+    (8, 'الفائدة'),
+    (12, 'بعد الفائدة'),
+    (11, 'القسط الشهري'),
+    (8, 'الأشهر'),
+    (8, 'متبقي'),
+    (11, 'البداية'),
+    (11, 'أول قسط'),
+    (9, 'الحالة'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +99,14 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
     await _load(silent: true);
   }
 
+  Color _statusColor(InvestmentStatus status) {
+    return switch (status) {
+      InvestmentStatus.active => AppTheme.paid,
+      InvestmentStatus.completed => AppTheme.completed,
+      InvestmentStatus.cancelled => AppTheme.late,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -140,37 +162,61 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                         : RefreshIndicator(
                             color: AppTheme.soft,
                             onRefresh: () => _load(silent: true),
-                            child: ListView(
-                              children: [
-                                _stats(),
-                                const SizedBox(height: 22),
-                                Text(
-                                  'عقودي الاستثمارية',
-                                  style: AppTheme.text(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: constraints.maxHeight,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _stats(),
+                                        const SizedBox(height: 22),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'عقودي الاستثمارية',
+                                              style: AppTheme.text(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.soft
+                                                    .withValues(alpha: 0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                '${_investments.items.length}',
+                                                style: AppTheme.text(
+                                                  color: AppTheme.soft,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        _contractsTable(),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (_investments.items.isEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.all(28),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(18),
-                                    ),
-                                    child: Text(
-                                      'لا توجد عقود استثمار بعد. عند إضافة عقد من الإدارة سيظهر هنا.',
-                                      textAlign: TextAlign.center,
-                                      style: AppTheme.text(
-                                        color: AppTheme.basic
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  ..._investments.items.map(_contractCard),
-                              ],
+                                );
+                              },
                             ),
                           ),
               ),
@@ -221,66 +267,187 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
     );
   }
 
-  Widget _contractCard(Investment item) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _openInvestment(item),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _contractsTable() {
+    final items = _investments.items;
+    return Column(
+      children: [
+        Container(
+          height: 52,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.softGlow,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Row(
               children: [
-                Row(
+                for (final h in _headers)
+                  Expanded(
+                    flex: h.$1,
+                    child: Text(
+                      h.$2,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.text(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: AppTheme.softGlow,
+          ),
+          child: items.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 48),
+                  child: Text(
+                    'لا توجد عقود استثمار بعد. عند إضافة عقد من الإدارة سيظهر هنا.',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(
+                      color: AppTheme.basic.withValues(alpha: 0.6),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              : Column(
                   children: [
-                    Expanded(
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      _contractRow(index: i + 1, item: items[i]),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _contractRow({required int index, required Investment item}) {
+    final statusColor = _statusColor(item.status);
+    return Material(
+      color: const Color(0xFFF8FCFE),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _openInvestment(item),
+        child: Container(
+          height: 62,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _fieldBorder),
+          ),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Row(
+              children: [
+                _cell(5, Text('$index', textAlign: TextAlign.center)),
+                _cell(
+                  12,
+                  Text(
+                    money(item.principal),
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                _cell(
+                  8,
+                  Text(
+                    '${item.interestPercent}%',
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                _cell(
+                  12,
+                  Text(
+                    money(item.totalWithInterest),
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                _cell(
+                  11,
+                  Text(
+                    money(item.monthlyPayout),
+                    textAlign: TextAlign.center,
+                    style: AppTheme.text(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                _cell(
+                  8,
+                  Text('${item.monthsCount}', textAlign: TextAlign.center),
+                ),
+                _cell(
+                  8,
+                  Text('${item.remainingMonths}', textAlign: TextAlign.center),
+                ),
+                _cell(
+                  11,
+                  Text(formatDate(item.startDate), textAlign: TextAlign.center),
+                ),
+                _cell(
+                  11,
+                  Text(
+                    formatDate(item.firstDueDate),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                _cell(
+                  9,
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: statusColor.withValues(alpha: 0.35),
+                        ),
+                      ),
                       child: Text(
-                        money(item.principal),
+                        investmentStatusLabel(item.status),
                         style: AppTheme.text(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
                         ),
                       ),
                     ),
-                    Text(
-                      investmentStatusLabel(item.status),
-                      style: AppTheme.text(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.soft,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'فائدة ${item.interestPercent}% → بعد الفائدة ${money(item.totalWithInterest)}',
-                  style: AppTheme.text(fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'القسط الشهري ${money(item.monthlyPayout)} · ${item.monthsCount} أشهر · متبقي ${item.remainingMonths}',
-                  style: AppTheme.text(
-                    fontSize: 12,
-                    color: AppTheme.basic.withValues(alpha: 0.65),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'من ${formatDate(item.startDate)} · أول قسط ${formatDate(item.firstDueDate)}',
-                  style: AppTheme.text(
-                    fontSize: 12,
-                    color: AppTheme.basic.withValues(alpha: 0.55),
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _cell(int flex, Widget child) {
+    return Expanded(
+      flex: flex,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: child,
       ),
     );
   }

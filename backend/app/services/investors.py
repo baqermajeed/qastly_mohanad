@@ -107,6 +107,7 @@ async def serialize_investor(db: AsyncIOMotorDatabase, doc: dict) -> InvestorOut
         username=doc["username"],
         full_name=doc["full_name"],
         phone=doc.get("phone") or "",
+        master_card=doc.get("master_card") or "",
         note=doc.get("note") or "",
         role="investor",
         active=bool(doc.get("active", True)),
@@ -165,6 +166,7 @@ async def create_investor(db: AsyncIOMotorDatabase, payload: InvestorCreate) -> 
         "username": username,
         "full_name": payload.full_name.strip(),
         "phone": payload.phone,
+        "master_card": payload.master_card,
         "note": (payload.note or "").strip(),
         "role": "investor",
         "active": True,
@@ -194,6 +196,8 @@ async def update_investor(
         updates["full_name"] = raw["full_name"].strip()
     if "phone" in raw and raw["phone"]:
         updates["phone"] = raw["phone"]
+    if "master_card" in raw and raw["master_card"]:
+        updates["master_card"] = raw["master_card"]
     if "note" in raw and raw["note"] is not None:
         updates["note"] = str(raw["note"]).strip()
     if "active" in raw and raw["active"] is not None:

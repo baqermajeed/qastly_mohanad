@@ -10,11 +10,23 @@ def _normalize_phone(value: str) -> str:
     return cleaned
 
 
+def _normalize_master(value: str) -> str:
+    cleaned = value.strip().replace(" ", "").replace("-", "")
+    if not cleaned:
+        raise ValueError("رقم الماستر غير صالح")
+    if not cleaned.isdigit():
+        raise ValueError("رقم الماستر يجب أن يحتوي على أرقام فقط")
+    if len(cleaned) < 8 or len(cleaned) > 19:
+        raise ValueError("رقم الماستر غير صالح")
+    return cleaned
+
+
 class InvestorCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=64)
     password: str = Field(..., min_length=4, max_length=128)
     full_name: str = Field(..., min_length=2, max_length=120)
     phone: str = Field(..., min_length=7, max_length=20)
+    master_card: str = Field(..., min_length=8, max_length=19)
     note: str = Field(default="", max_length=300)
 
     @field_validator("phone")
@@ -22,10 +34,16 @@ class InvestorCreate(BaseModel):
     def validate_phone(cls, value: str) -> str:
         return _normalize_phone(value)
 
+    @field_validator("master_card")
+    @classmethod
+    def validate_master(cls, value: str) -> str:
+        return _normalize_master(value)
+
 
 class InvestorUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=120)
     phone: str | None = Field(default=None, min_length=7, max_length=20)
+    master_card: str | None = Field(default=None, min_length=8, max_length=19)
     password: str | None = Field(default=None, min_length=4, max_length=128)
     note: str | None = Field(default=None, max_length=300)
     active: bool | None = None
@@ -37,12 +55,20 @@ class InvestorUpdate(BaseModel):
             return value
         return _normalize_phone(value)
 
+    @field_validator("master_card")
+    @classmethod
+    def validate_master(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return _normalize_master(value)
+
 
 class InvestorOut(BaseModel):
     id: str
     username: str
     full_name: str
     phone: str = ""
+    master_card: str = ""
     note: str = ""
     role: str = "investor"
     active: bool = True

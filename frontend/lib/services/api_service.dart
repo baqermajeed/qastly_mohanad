@@ -314,6 +314,7 @@ class ApiService {
     required String password,
     required String fullName,
     required String phone,
+    required String masterCard,
     String note = '',
   }) async {
     final res = await _send(
@@ -325,6 +326,7 @@ class ApiService {
           'password': password,
           'full_name': fullName,
           'phone': phone,
+          'master_card': masterCard,
           'note': note,
         }),
       ),
@@ -336,6 +338,7 @@ class ApiService {
     required String id,
     String? fullName,
     String? phone,
+    String? masterCard,
     String? password,
     String? note,
     bool? active,
@@ -343,6 +346,7 @@ class ApiService {
     final body = <String, dynamic>{
       if (fullName != null) 'full_name': fullName,
       if (phone != null) 'phone': phone,
+      if (masterCard != null) 'master_card': masterCard,
       if (password != null && password.isNotEmpty) 'password': password,
       if (note != null) 'note': note,
       if (active != null) 'active': active,

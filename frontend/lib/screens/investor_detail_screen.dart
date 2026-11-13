@@ -251,7 +251,8 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${_investor.username} · ${_investor.phone.isEmpty ? '—' : _investor.phone}',
+                  '${_investor.username} · ${_investor.phone.isEmpty ? '—' : _investor.phone}'
+                  '${_investor.masterCard.isEmpty ? '' : ' · ماستر ${_investor.masterCard}'}',
                   style: AppTheme.text(
                     fontSize: 13,
                     color: AppTheme.basic.withValues(alpha: 0.65),
@@ -283,6 +284,14 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
+  Color _statusColor(InvestmentStatus status) {
+    return switch (status) {
+      InvestmentStatus.active => AppTheme.paid,
+      InvestmentStatus.completed => AppTheme.completed,
+      InvestmentStatus.cancelled => AppTheme.late,
+    };
+  }
+
   Widget _contractsPane() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
@@ -291,11 +300,54 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
         children: [
           _summaryGrid(),
           const SizedBox(height: 16),
-          Text(
-            'العقود الاستثمارية',
-            style: AppTheme.text(fontSize: 16, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              Text(
+                'العقود الاستثمارية',
+                style: AppTheme.text(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _actionBlue.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  '${_investments.items.length}',
+                  style: AppTheme.text(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: _actionBlue,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3FAFD),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _fieldBorder),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Row(
+                children: [
+                  _miniHead(5, '#'),
+                  _miniHead(16, 'المبلغ'),
+                  _miniHead(10, 'فائدة'),
+                  _miniHead(16, 'بعد الفائدة'),
+                  _miniHead(14, 'القسط'),
+                  _miniHead(12, 'متبقي'),
+                  _miniHead(12, 'الحالة'),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
             child: _investments.items.isEmpty
                 ? Center(
@@ -312,11 +364,15 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
                     itemBuilder: (context, i) {
                       final item = _investments.items[i];
                       final selected = _selected?.id == item.id;
+                      final statusColor = _statusColor(item.status);
                       return InkWell(
                         onTap: () => _openInvestment(item),
                         borderRadius: BorderRadius.circular(14),
                         child: Container(
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: selected
                                 ? const Color(0xFFE8F5FC)
@@ -324,48 +380,103 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: selected ? _actionBlue : _fieldBorder,
+                              width: selected ? 1.4 : 1,
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      money(item.principal),
-                                      style: AppTheme.text(
-                                        fontWeight: FontWeight.w700,
+                          child: Directionality(
+                            textDirection: TextDirection.rtl,
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    _miniCell(5, Text('${i + 1}', textAlign: TextAlign.center)),
+                                    _miniCell(
+                                      16,
+                                      Text(
+                                        money(item.principal),
+                                        textAlign: TextAlign.center,
+                                        style: AppTheme.text(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    _miniCell(
+                                      10,
+                                      Text(
+                                        '${item.interestPercent}%',
+                                        textAlign: TextAlign.center,
+                                        style: AppTheme.text(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    _miniCell(
+                                      16,
+                                      Text(
+                                        money(item.totalWithInterest),
+                                        textAlign: TextAlign.center,
+                                        style: AppTheme.text(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    _miniCell(
+                                      14,
+                                      Text(
+                                        money(item.monthlyPayout),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    _miniCell(
+                                      12,
+                                      Text(
+                                        '${item.remainingMonths}/${item.monthsCount}',
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    _miniCell(
+                                      12,
+                                      Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 3,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: statusColor.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                          ),
+                                          child: Text(
+                                            investmentStatusLabel(item.status),
+                                            style: AppTheme.text(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    'بداية ${formatDate(item.startDate)} · أول قسط ${formatDate(item.firstDueDate)}',
+                                    style: AppTheme.text(
+                                      fontSize: 11,
+                                      color: AppTheme.basic.withValues(
+                                        alpha: 0.55,
                                       ),
                                     ),
                                   ),
-                                  Text(
-                                    investmentStatusLabel(item.status),
-                                    style: AppTheme.text(
-                                      fontSize: 12,
-                                      color: _actionBlue,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'فائدة ${item.interestPercent}% · قسط ${money(item.monthlyPayout)} · ${item.monthsCount} شهر',
-                                style: AppTheme.text(
-                                  fontSize: 12,
-                                  color: AppTheme.basic.withValues(alpha: 0.65),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'بداية ${formatDate(item.startDate)} · أول قسط ${formatDate(item.firstDueDate)}',
-                                style: AppTheme.text(
-                                  fontSize: 11,
-                                  color: AppTheme.basic.withValues(alpha: 0.55),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -375,6 +486,21 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
         ],
       ),
     );
+  }
+
+  Widget _miniHead(int flex, String label) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: AppTheme.text(fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _miniCell(int flex, Widget child) {
+    return Expanded(flex: flex, child: child);
   }
 
   Widget _summaryGrid() {

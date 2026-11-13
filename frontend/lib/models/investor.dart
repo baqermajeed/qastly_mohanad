@@ -4,6 +4,7 @@ class Investor {
     required this.username,
     required this.fullName,
     required this.phone,
+    required this.masterCard,
     required this.note,
     required this.active,
     required this.investmentsCount,
@@ -21,6 +22,7 @@ class Investor {
   final String username;
   final String fullName;
   final String phone;
+  final String masterCard;
   final String note;
   final bool active;
   final int investmentsCount;
@@ -39,6 +41,7 @@ class Investor {
       username: json['username'] as String,
       fullName: json['full_name'] as String,
       phone: (json['phone'] as String?) ?? '',
+      masterCard: (json['master_card'] as String?) ?? '',
       note: (json['note'] as String?) ?? '',
       active: json['active'] as bool? ?? true,
       investmentsCount: json['investments_count'] as int? ?? 0,

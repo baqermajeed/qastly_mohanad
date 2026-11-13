@@ -32,6 +32,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _master = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController();
   final _note = TextEditingController();
@@ -49,6 +50,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
     if (inv != null) {
       _name.text = inv.fullName;
       _phone.text = inv.phone;
+      _master.text = inv.masterCard;
       _username.text = inv.username;
       _note.text = inv.note;
     }
@@ -58,6 +60,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _master.dispose();
     _username.dispose();
     _password.dispose();
     _note.dispose();
@@ -67,6 +70,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final masterCard = _master.text.trim().replaceAll(' ', '');
     setState(() => _saving = true);
     try {
       if (_editing) {
@@ -74,6 +78,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
           id: widget.investor!.id,
           fullName: _name.text.trim(),
           phone: _phone.text.trim(),
+          masterCard: masterCard,
           password: _password.text.trim().isEmpty ? null : _password.text,
           note: _note.text.trim(),
         );
@@ -83,6 +88,7 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
           password: _password.text,
           fullName: _name.text.trim(),
           phone: _phone.text.trim(),
+          masterCard: masterCard,
           note: _note.text.trim(),
         );
       }
@@ -165,6 +171,24 @@ class _AddInvestorDialogState extends State<AddInvestorDialog> {
                             LengthLimitingTextInputFormatter(11),
                           ],
                           validator: validateIraqiPhone,
+                        ),
+                        const SizedBox(height: 12),
+                        _field(
+                          controller: _master,
+                          label: 'رقم الماستر كارد',
+                          hint: 'رقم بطاقة الماستر',
+                          keyboard: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(19),
+                          ],
+                          validator: (v) {
+                            final value = (v ?? '').replaceAll(' ', '');
+                            if (value.length < 8) {
+                              return 'أدخل رقم ماستر صالحاً';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 12),
                         Row(
