@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   confirmInvestorDues,
+  getInvestment,
   getInvestments,
   getInvestor,
 } from "@/lib/api";
@@ -42,9 +43,11 @@ export function InvestorDetailSheet({
   onClose,
   onUpdated,
   isAdmin = true,
+  initialInvestmentId = null,
 }: Props) {
   const [investor, setInvestor] = useState<Investor | null>(null);
   const [investments, setInvestments] = useState<Investment[]>([]);
+  const [selected, setSelected] = useState<Investment | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,9 @@ export function InvestorDetailSheet({
   const [settleOpen, setSettleOpen] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  /** حساب المستثمر: عرض تفاصيل العقد المختار فقط. */
+  const contractOnlyMode = !isAdmin && Boolean(initialInvestmentId);
 
   async function load(id: string) {
     setLoading(true);
@@ -64,6 +70,17 @@ export function InvestorDetailSheet({
       ]);
       setInvestor(inv);
       setInvestments(list.items);
+      if (contractOnlyMode && initialInvestmentId) {
+        try {
+          setSelected(await getInvestment(initialInvestmentId));
+        } catch {
+          setSelected(
+            list.items.find((i) => i.id === initialInvestmentId) ?? null,
+          );
+        }
+      } else {
+        setSelected(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تحميل البيانات");
     } finally {
@@ -74,12 +91,16 @@ export function InvestorDetailSheet({
   useEffect(() => {
     if (!open || !investorId) return;
     void load(investorId);
-  }, [open, investorId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, investorId, initialInvestmentId, isAdmin]);
 
   if (!open) return null;
 
   const due = investor?.due_this_month_amount ?? 0;
   const initial = (investor?.full_name?.trim()?.[0] || "م").toString();
+  const lastDue = selected
+    ? computeLastDueDate(selected.first_due_date, selected.months_count)
+    : null;
 
   async function onSettle() {
     if (!investorId || !investor) return;
@@ -188,6 +209,84 @@ export function InvestorDetailSheet({
           <div className="rounded-2xl bg-white p-6 text-center text-sm font-bold text-[var(--basic)]/50">
             لا توجد بيانات
           </div>
+        ) : contractOnlyMode ? (
+          !selected ? (
+            <div className="rounded-2xl bg-white p-6 text-center text-sm font-bold text-[var(--basic)]/50">
+              لا يوجد عقد لعرضه
+            </div>
+          ) : (
+            <>
+              <h4 className="mb-2 text-sm font-extrabold text-[var(--basic)]">
+                معلومات وإحصائيات العقد
+              </h4>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {(
+                  [
+                    ["الأصل", money(selected.principal)],
+                    [
+                      "الفائدة",
+                      `${selected.interest_percent}% (${money(selected.interest_amount)})`,
+                    ],
+                    ["بعد الفائدة", money(selected.total_with_interest)],
+                    ["القسط الشهري", money(selected.monthly_payout)],
+                    ["المستلم", money(selected.paid_amount)],
+                    ["المتبقي", money(selected.remaining_amount)],
+                    ["عدد الأشهر", `${selected.months_count}`],
+                    ["أشهر متبقية", `${selected.remaining_months}`],
+                    ["الحالة", statusLabel(selected.status)],
+                  ] as const
+                ).map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="rounded-[14px] border border-[#D5E8F2] bg-white px-2 py-2.5 text-center"
+                  >
+                    <div className="truncate text-[10px] font-bold text-[var(--basic)]/50">
+                      {label}
+                    </div>
+                    <div className="mt-1 truncate text-[13px] font-extrabold text-[var(--basic)]">
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mb-3 rounded-[16px] bg-gradient-to-bl from-[#064E6A] to-[#069BAF] p-4 text-white">
+                <div className="text-[12px] font-semibold text-white/80">
+                  مستحق هذا العقد هذا الشهر
+                </div>
+                <div className="mt-1 text-[24px] font-extrabold leading-none">
+                  {money(selected.due_this_month_amount)}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2.5 rounded-[14px] border border-[#D5E8F2] bg-white px-3 py-3">
+                  <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#E8F5FC] text-[var(--soft)]">
+                    ▶
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold text-[var(--basic)]/50">
+                      أول دفعة
+                    </div>
+                    <div className="text-[13px] font-extrabold">
+                      {formatDateString(selected.first_due_date)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-[14px] border border-[#D5E8F2] bg-white px-3 py-3">
+                  <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#E8F5FC] text-[var(--soft)]">
+                    ⚑
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-bold text-[var(--basic)]/50">
+                      آخر دفعة
+                    </div>
+                    <div className="text-[13px] font-extrabold">
+                      {formatDateString(lastDue)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )
         ) : (
           <>
             <h4 className="mb-2 text-sm font-extrabold text-[var(--basic)]">

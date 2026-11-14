@@ -49,6 +49,7 @@ class InvestorDetailDialog extends StatefulWidget {
 class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   late Investor _investor;
   PageResult<Investment> _investments = PageResult.empty(pageSize: 50);
+  Investment? _selected;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -59,6 +60,10 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   static const _heroTop = Color(0xFF064E6A);
   static const _heroBottom = Color(0xFF069BAF);
   static const _paidGreen = Color(0xFF0E8A61);
+
+  /// حساب المستثمر: عرض تفاصيل العقد المختار فقط.
+  bool get _contractOnlyMode =>
+      !widget.isAdmin && widget.initialInvestmentId != null;
 
   @override
   void initState() {
@@ -79,10 +84,25 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
         page: 1,
         pageSize: 50,
       );
+      Investment? selected;
+      final targetId = widget.initialInvestmentId;
+      if (_contractOnlyMode && targetId != null) {
+        try {
+          selected = await widget.api.getInvestment(targetId);
+        } catch (_) {
+          for (final item in investments.items) {
+            if (item.id == targetId) {
+              selected = item;
+              break;
+            }
+          }
+        }
+      }
       if (!mounted) return;
       setState(() {
         _investor = investor;
         _investments = investments;
+        _selected = selected;
         _loading = false;
       });
     } catch (e) {
@@ -286,7 +306,9 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
                               ),
                             ),
                           )
-                        : _body(),
+                        : (_contractOnlyMode
+                            ? _contractBody()
+                            : _adminBody()),
               ),
             ],
           ),
@@ -377,7 +399,74 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
-  Widget _body() {
+  Widget _contractBody() {
+    final inv = _selected;
+    if (inv == null) {
+      return Center(
+        child: Text(
+          'لا يوجد عقد لعرضه',
+          style: AppTheme.text(
+            color: AppTheme.basic.withValues(alpha: 0.55),
+          ),
+        ),
+      );
+    }
+    final last = lastDueDate(
+      firstDue: inv.firstDueDate,
+      monthsCount: inv.monthsCount,
+    );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+      children: [
+        Text(
+          'معلومات وإحصائيات العقد',
+          style: AppTheme.text(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        _metricsGrid([
+          ('الأصل', money(inv.principal)),
+          (
+            'الفائدة',
+            '${inv.interestPercent}% (${money(inv.interestAmount)})',
+          ),
+          ('بعد الفائدة', money(inv.totalWithInterest)),
+          ('القسط الشهري', money(inv.monthlyPayout)),
+          ('المستلم', money(inv.paidAmount)),
+          ('المتبقي', money(inv.remainingAmount)),
+          ('عدد الأشهر', '${inv.monthsCount}'),
+          ('أشهر متبقية', '${inv.remainingMonths}'),
+          ('الحالة', investmentStatusLabel(inv.status)),
+        ]),
+        const SizedBox(height: 12),
+        _dueCard(
+          inv.dueThisMonthAmount,
+          title: 'مستحق هذا العقد هذا الشهر',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _dateTile(
+                'أول دفعة',
+                formatDayMonth(inv.firstDueDate),
+                Icons.play_arrow_rounded,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _dateTile(
+                'آخر دفعة',
+                last == null ? '—' : formatDayMonth(last),
+                Icons.flag_rounded,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _adminBody() {
     final due = _investor.dueThisMonthAmount;
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
@@ -397,31 +486,29 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
         ]),
         const SizedBox(height: 14),
         _dueCard(due),
-        if (widget.isAdmin) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: FilledButton(
-              onPressed: _busy || due <= 0.01 ? null : _settleDues,
-              style: FilledButton.styleFrom(
-                backgroundColor: _paidGreen,
-                disabledBackgroundColor: _paidGreen.withValues(alpha: 0.35),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 46,
+          child: FilledButton(
+            onPressed: _busy || due <= 0.01 ? null : _settleDues,
+            style: FilledButton.styleFrom(
+              backgroundColor: _paidGreen,
+              disabledBackgroundColor: _paidGreen.withValues(alpha: 0.35),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Text(
-                due <= 0.01 ? 'لا مستحقات حالياً' : 'تسديد المستحقات',
-                style: AppTheme.text(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                ),
+            ),
+            child: Text(
+              due <= 0.01 ? 'لا مستحقات حالياً' : 'تسديد المستحقات',
+              style: AppTheme.text(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
               ),
             ),
           ),
-        ],
+        ),
         const SizedBox(height: 18),
         Row(
           children: [
@@ -475,7 +562,7 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
-  Widget _dueCard(double due) {
+  Widget _dueCard(double due, {String title = 'مستحقاته هذا الشهر'}) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
@@ -493,7 +580,7 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'مستحقاته هذا الشهر',
+                  title,
                   style: AppTheme.text(
                     color: Colors.white.withValues(alpha: 0.85),
                     fontSize: 12,
@@ -516,6 +603,53 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
             Icons.account_balance_wallet_outlined,
             color: Colors.white.withValues(alpha: 0.9),
             size: 28,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dateTile(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _fieldBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5FC),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: _actionBlue),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTheme.text(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.basic.withValues(alpha: 0.5),
+                  ),
+                ),
+                Text(
+                  value,
+                  style: AppTheme.text(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
