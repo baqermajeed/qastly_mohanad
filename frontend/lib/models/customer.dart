@@ -211,6 +211,7 @@ class DashboardStats {
     this.pendingCount = 0,
     this.bankAmounts = 0,
     this.platformAmounts = 0,
+    this.platformAmountsThisMonth = 0,
     this.investorCommissionAmounts = 0,
     this.financedAmounts = 0,
     this.merchantsCount = 0,
@@ -235,6 +236,7 @@ class DashboardStats {
   final double remainingAmounts;
   final double bankAmounts;
   final double platformAmounts;
+  final double platformAmountsThisMonth;
   final double investorCommissionAmounts;
   final double financedAmounts;
   final int merchantsCount;
@@ -260,6 +262,8 @@ class DashboardStats {
       remainingAmounts: (json['remaining_amounts'] as num).toDouble(),
       bankAmounts: (json['bank_amounts'] as num?)?.toDouble() ?? 0,
       platformAmounts: (json['platform_amounts'] as num?)?.toDouble() ?? 0,
+      platformAmountsThisMonth:
+          (json['platform_amounts_this_month'] as num?)?.toDouble() ?? 0,
       investorCommissionAmounts:
           (json['investor_commission_amounts'] as num?)?.toDouble() ?? 0,
       financedAmounts: (json['financed_amounts'] as num?)?.toDouble() ?? 0,

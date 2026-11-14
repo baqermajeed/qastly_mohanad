@@ -179,39 +179,19 @@ export function StatsGrid({
               tone: "navy",
             },
             {
-              title: "عدد الزبائن",
+              title: "عدد الخطط",
               value: `${stats.total_customers}`,
               tone: "mint",
             },
             {
-              title: "عمولة المنصة",
-              value: money(stats.platform_amounts),
-              tone: "mint",
-            },
-            {
-              title: "عمولة المصرف",
-              value: money(stats.bank_amounts),
-              tone: "gold",
-            },
-            {
-              title: "نسبة المستثمرين",
-              value: money(stats.investor_commission_amounts ?? 0),
-              tone: "mint",
-            },
-            {
-              title: "إجمالي الخطط",
-              value: money(stats.total_amounts),
-              tone: "navy",
-            },
-            {
-              title: "المتبقي على الزبائن",
-              value: money(stats.remaining_amounts),
-              tone: "gold",
-            },
-            {
-              title: "دفعات التجار النقدية هذا الشهر",
+              title: "مستحقات التجار هذا الشهر",
               value: money(stats.due_this_month_amount ?? 0),
               tone: "gold",
+            },
+            {
+              title: "أرباح المنصة هذا الشهر",
+              value: money(stats.platform_amounts_this_month ?? 0),
+              tone: "mint",
             },
             {
               title: "عدد المستثمرين",
@@ -219,32 +199,12 @@ export function StatsGrid({
               tone: "navy",
             },
             {
-              title: "العقود الاستثمارية",
+              title: "عدد العقود الاستثمارية",
               value: `${stats.investments_count ?? 0}`,
               tone: "mint",
             },
             {
-              title: "أصل استثمارات",
-              value: money(stats.investor_principal_total ?? 0),
-              tone: "mint",
-            },
-            {
-              title: "بعد الفائدة (مستثمرين)",
-              value: money(stats.investor_total_with_interest ?? 0),
-              tone: "navy",
-            },
-            {
-              title: "مصروف للمستثمرين",
-              value: money(stats.investor_paid_amount ?? 0),
-              tone: "mint",
-            },
-            {
-              title: "متبقي للمستثمرين",
-              value: money(stats.investor_remaining_amount ?? 0),
-              tone: "gold",
-            },
-            {
-              title: "مستحق للمستثمرين هذا الشهر",
+              title: "مستحقات المستثمرين هذا الشهر",
               value: money(stats.investor_due_this_month_amount ?? 0),
               tone: "gold",
             },
@@ -277,6 +237,23 @@ export function StatsGrid({
             },
           ];
 
+  const renderCards = (list: Item[], colsClass: string) => (
+    <div className={colsClass}>
+      {list.map((item) => (
+        <StatCard
+          key={item.title}
+          title={item.title}
+          value={item.value}
+          tone={item.tone}
+          subtitle={item.subtitle}
+          onIconClick={item.onIconClick}
+          iconButtonLabel={item.iconButtonLabel}
+          compact={compact}
+        />
+      ))}
+    </div>
+  );
+
   if (compact) {
     return (
       <div className="grid grid-cols-1 gap-2">
@@ -296,21 +273,39 @@ export function StatsGrid({
     );
   }
 
+  if (variant === "admin") {
+    const merchants = items.slice(0, 4);
+    const investors = items.slice(4);
+    return (
+      <div className="mx-4 mt-4 space-y-4">
+        <section className="space-y-2">
+          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
+            إحصائيات التجار
+          </h3>
+          {renderCards(
+            merchants,
+            "grid grid-cols-2 gap-2 sm:grid-cols-4",
+          )}
+        </section>
+        <section className="space-y-2">
+          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
+            إحصائيات المستثمرين
+          </h3>
+          {renderCards(
+            investors,
+            "grid grid-cols-1 gap-2 sm:grid-cols-3",
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-4 mt-4 space-y-2">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        {items.map((item) => (
-          <StatCard
-            key={item.title}
-            title={item.title}
-            value={item.value}
-            tone={item.tone}
-            subtitle={item.subtitle}
-            onIconClick={item.onIconClick}
-            iconButtonLabel={item.iconButtonLabel}
-          />
-        ))}
-      </div>
+      {renderCards(
+        items,
+        "grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5",
+      )}
     </div>
   );
 }

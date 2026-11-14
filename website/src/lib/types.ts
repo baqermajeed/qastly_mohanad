@@ -72,6 +72,7 @@ export type DashboardStats = {
   remaining_amounts: number;
   bank_amounts: number;
   platform_amounts: number;
+  platform_amounts_this_month?: number;
   investor_commission_amounts?: number;
   financed_amounts: number;
   merchants_count: number;

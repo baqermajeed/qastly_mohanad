@@ -454,7 +454,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     final stats = _stats;
     if (stats == null) return const SizedBox.shrink();
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          'إحصائيات التجار',
+          style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -467,7 +473,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'عدد الزبائن',
+                title: 'عدد الخطط',
                 value: '${stats.totalCustomers}',
                 background: AppTheme.cardTeal,
               ),
@@ -475,54 +481,27 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'عمولة المنصة',
-                value: money(stats.platformAmounts),
-                background: AppTheme.cardMint,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'عمولة المصرف',
-                value: money(stats.bankAmounts),
-                background: AppTheme.cardGold,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'نسبة المستثمرين',
-                value: money(stats.investorCommissionAmounts),
-                background: AppTheme.cardMint,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'إجمالي الخطط',
-                value: money(stats.totalAmounts),
-                background: AppTheme.cardNavy,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'المتبقي على الزبائن',
-                value: money(stats.remainingAmounts),
-                background: AppTheme.cardGold,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'دفعات التجار النقدية هذا الشهر',
+                title: 'مستحقات التجار هذا الشهر',
                 value: money(stats.dueThisMonthAmount),
                 background: AppTheme.cardGold,
               ),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DashboardStatCard(
+                title: 'أرباح المنصة هذا الشهر',
+                value: money(stats.platformAmountsThisMonth),
+                background: AppTheme.cardMint,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
+        Text(
+          'إحصائيات المستثمرين',
+          style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -535,7 +514,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'العقود الاستثمارية',
+                title: 'عدد العقود الاستثمارية',
                 value: '${stats.investmentsCount}',
                 background: AppTheme.cardTeal,
               ),
@@ -543,39 +522,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'أصل استثمارات',
-                value: money(stats.investorPrincipalTotal),
-                background: AppTheme.cardMint,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'بعد الفائدة (مستثمرين)',
-                value: money(stats.investorTotalWithInterest),
-                background: AppTheme.cardTeal,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'مصروف للمستثمرين',
-                value: money(stats.investorPaidAmount),
-                background: AppTheme.cardMint,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'متبقي للمستثمرين',
-                value: money(stats.investorRemainingAmount),
-                background: AppTheme.cardGold,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardStatCard(
-                title: 'مستحق للمستثمرين هذا الشهر',
+                title: 'مستحقات المستثمرين هذا الشهر',
                 value: money(stats.investorDueThisMonthAmount),
                 background: AppTheme.cardGold,
               ),

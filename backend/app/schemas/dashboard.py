@@ -15,6 +15,7 @@ class DashboardStats(BaseModel):
     remaining_amounts: float
     bank_amounts: float = 0
     platform_amounts: float = 0
+    platform_amounts_this_month: float = 0
     investor_commission_amounts: float = 0
     financed_amounts: float = 0
     merchants_count: int = 0

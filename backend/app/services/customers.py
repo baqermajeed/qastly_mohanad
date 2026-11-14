@@ -556,6 +556,16 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     remaining_amounts = round(sum(c.remaining_amount for c in counted), 2)
     bank_amounts = round(sum(c.bank_amount for c in counted), 2)
     platform_amounts = round(sum(c.platform_amount for c in counted), 2)
+    today = date.today()
+    platform_amounts_this_month = round(
+        sum(
+            c.platform_amount
+            for c in counted
+            if c.registration_date.year == today.year
+            and c.registration_date.month == today.month
+        ),
+        2,
+    )
     investor_commission_amounts = round(
         sum(getattr(c, "investor_amount", 0) or 0 for c in counted), 2
     )
@@ -578,6 +588,7 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
             remaining_amounts=remaining_amounts,
             bank_amounts=bank_amounts,
             platform_amounts=platform_amounts,
+            platform_amounts_this_month=platform_amounts_this_month,
             investor_commission_amounts=investor_commission_amounts,
             financed_amounts=financed_amounts,
             merchants_count=merchants,
