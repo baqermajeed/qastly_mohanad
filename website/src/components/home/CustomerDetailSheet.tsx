@@ -70,6 +70,8 @@ export function CustomerDetailSheet({
   const [governorate, setGovernorate] = useState("");
   const [mastercard, setMastercard] = useState("");
   const [nationalId, setNationalId] = useState("");
+  const [status, setStatus] = useState<Customer["status"]>("active");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
     if (!open || !customerId) return;
@@ -102,6 +104,8 @@ export function CustomerDetailSheet({
     setGovernorate(c.governorate);
     setMastercard(c.mastercard_number || "");
     setNationalId(c.national_id || "");
+    setStatus(c.status);
+    setConfirmPassword("");
     setEditError(null);
     setEditing(true);
   }
@@ -124,6 +128,16 @@ export function CustomerDetailSheet({
       return;
     }
 
+    if (
+      isAdmin &&
+      status === "inactive" &&
+      customer.status !== "inactive" &&
+      !confirmPassword.trim()
+    ) {
+      setEditError("أدخل كلمة مرور المدير لتأكيد إيقاف الخطة");
+      return;
+    }
+
     setSaving(true);
     try {
       const updated = await updateCustomer(customer.id, {
@@ -132,6 +146,14 @@ export function CustomerDetailSheet({
         governorate,
         mastercard_number: mastercard.trim(),
         national_id: nationalId.trim(),
+        ...(isAdmin
+          ? {
+              status,
+              ...(status === "inactive" && customer.status !== "inactive"
+                ? { confirm_password: confirmPassword.trim() }
+                : {}),
+            }
+          : {}),
       });
       setCustomer({ ...customer, ...updated, payments: customer.payments });
       setEditing(false);
@@ -246,7 +268,7 @@ export function CustomerDetailSheet({
                         }
                       }}
                     >
-                      اعتماد الخطة
+                      اعتماد
                     </button>
                     <button
                       type="button"
@@ -299,7 +321,7 @@ export function CustomerDetailSheet({
                     rel="noreferrer"
                     className="cd-btn-wa"
                   >
-                    واتساب
+                    تواصل واتساب
                   </a>
                 </div>
               </section>
@@ -337,17 +359,23 @@ export function CustomerDetailSheet({
                     tone="purple"
                   />
                   <MoneyTile
-                    label="الأشهر المتبقية"
+                    label="عدد الأشهر المتبقية"
                     value={`${customer.remaining_months} شهر`}
                     tone="cyan"
                   />
                   <MoneyTile
-                    label="الدفعة الشهرية"
+                    label="مبلغ الدفعة الشهرية"
                     value={`${money(customer.monthly_payment)} د.ع`}
                     tone="purple"
                   />
+                </div>
+              </section>
+
+              <section className="cd-card">
+                <h5 className="cd-section-title">تواريخ الخطة</h5>
+                <div className="cd-money-grid">
                   <MoneyTile
-                    label="عدد الأشهر"
+                    label="عدد الأشهر الكلي"
                     value={`${customer.months_count} شهر`}
                     tone="blue"
                   />
@@ -458,6 +486,43 @@ export function CustomerDetailSheet({
                   inputMode="numeric"
                 />
               </div>
+              {isAdmin &&
+              customer &&
+              customer.status !== "pending" &&
+              customer.status !== "rejected" ? (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold">
+                      حالة الخطة
+                    </label>
+                    <select
+                      className="field"
+                      value={status}
+                      onChange={(e) =>
+                        setStatus(e.target.value as Customer["status"])
+                      }
+                    >
+                      <option value="active">نشطة</option>
+                      <option value="inactive">غير نشطة</option>
+                      <option value="completed">مكتملة</option>
+                    </select>
+                  </div>
+                  {status === "inactive" && customer.status !== "inactive" ? (
+                    <div>
+                      <label className="mb-1 block text-xs font-bold">
+                        كلمة مرور المدير للتأكيد
+                      </label>
+                      <input
+                        className="field"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
               {editError ? (
                 <p className="text-center text-sm font-bold text-[var(--late)]">
                   {editError}

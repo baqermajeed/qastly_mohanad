@@ -27,6 +27,7 @@ import { CustomerDetailSheet } from "@/components/home/CustomerDetailSheet";
 import { MobileHeader } from "@/components/home/MobileHeader";
 import { SearchBar } from "@/components/home/SearchBar";
 import { SideMenu } from "@/components/home/SideMenu";
+import { StatsGrid } from "@/components/home/StatsGrid";
 
 type Tab = "merchants" | "investors" | "customers" | "pending";
 
@@ -295,6 +296,8 @@ export function AdminHome({ user, onLogout }: Props) {
           </button>
         ))}
       </section>
+
+      <StatsGrid stats={stats} variant="admin" />
 
       <section className="mx-4 mt-5">
         <div className="mb-3 flex items-center gap-2">

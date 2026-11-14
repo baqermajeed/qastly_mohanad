@@ -84,143 +84,128 @@ export function StatsGrid({
             tone: "mint" as const,
           },
           {
-            title: "المبالغ المستلمة",
-            value: money(stats.investor_paid_amount ?? stats.paid_amounts),
-            tone: "mint" as const,
-          },
-          {
-            title: "المبالغ المتبقية",
-            value: money(
-              stats.investor_remaining_amount ?? stats.remaining_amounts,
-            ),
-            tone: "gold" as const,
-          },
-          {
             title: "قسط هذا الشهر",
             value: money(stats.investor_due_this_month_amount ?? 0),
             tone: "gold" as const,
           },
           {
-            title: "عدد العقود",
-            value: `${stats.investments_count ?? 0}`,
-            tone: "navy" as const,
+            title: "المبالغ المستلمة (كل العقود)",
+            value: money(stats.investor_paid_amount ?? stats.paid_amounts),
+            tone: "mint" as const,
+          },
+          {
+            title: "المبالغ المتبقية (كل العقود)",
+            value: money(
+              stats.investor_remaining_amount ?? stats.remaining_amounts,
+            ),
+            tone: "gold" as const,
           },
         ]
       : variant === "admin"
-      ? [
-          {
-            title: "دفعات التجار النقدية هذا الشهر",
-            value: money(stats.due_this_month_amount ?? 0),
-            tone: "gold" as const,
-          },
-          {
-            title: "عمولة المنصة",
-            value: money(stats.platform_amounts),
-            tone: "navy" as const,
-          },
-          {
-            title: "عمولة المصرف",
-            value: money(stats.bank_amounts),
-            tone: "gold" as const,
-          },
-          {
-            title: "نسبة المستثمرين",
-            value: money(stats.investor_commission_amounts ?? 0),
-            tone: "mint" as const,
-          },
-          {
-            title: "إجمالي الخطط",
-            value: money(stats.total_amounts),
-            tone: "mint" as const,
-          },
-          {
-            title: "المتبقي على الزبائن",
-            value: money(stats.remaining_amounts),
-            tone: "gold" as const,
-          },
-          {
-            title: "عدد التجار",
-            value: `${stats.merchants_count}`,
-            tone: "navy" as const,
-          },
-          {
-            title: "عدد الزبائن",
-            value: `${stats.total_customers}`,
-            tone: "mint" as const,
-          },
-          {
-            title: "طلبات بانتظار الموافقة",
-            value: `${stats.pending_count}`,
-            tone: "gold" as const,
-          },
-          {
-            title: "الخطط النشطة",
-            value: `${stats.remaining_count}`,
-            tone: "white" as const,
-          },
-          {
-            title: "عدد المستثمرين",
-            value: `${stats.investors_count ?? 0}`,
-            tone: "navy" as const,
-          },
-          {
-            title: "العقود الاستثمارية",
-            value: `${stats.investments_count ?? 0}`,
-            tone: "mint" as const,
-          },
-          {
-            title: "أصل استثمارات",
-            value: money(stats.investor_principal_total ?? 0),
-            tone: "mint" as const,
-          },
-          {
-            title: "بعد الفائدة (مستثمرين)",
-            value: money(stats.investor_total_with_interest ?? 0),
-            tone: "navy" as const,
-          },
-          {
-            title: "مصروف للمستثمرين",
-            value: money(stats.investor_paid_amount ?? 0),
-            tone: "mint" as const,
-          },
-          {
-            title: "متبقي للمستثمرين",
-            value: money(stats.investor_remaining_amount ?? 0),
-            tone: "gold" as const,
-          },
-          {
-            title: "مستحق للمستثمرين هذا الشهر",
-            value: money(stats.investor_due_this_month_amount ?? 0),
-            tone: "gold" as const,
-          },
-        ]
-      : [
-          {
-            title: "إجمالي المبالغ",
-            value: money(stats.total_amounts),
-            tone: "navy" as const,
-          },
-          {
-            title: "إجمالي المبالغ بعد النسب",
-            value: money(stats.financed_amounts),
-            tone: "white" as const,
-          },
-          {
-            title: "مستحقاتك",
-            value: money(stats.due_this_month_amount ?? 0),
-            tone: "gold" as const,
-          },
-          {
-            title: "عدد الزبائن",
-            value: `${stats.total_customers}`,
-            tone: "navy" as const,
-          },
-          {
-            title: "الخطط النشطة",
-            value: `${stats.remaining_count}`,
-            tone: "white" as const,
-          },
-        ];
+        ? [
+            {
+              title: "عدد التجار",
+              value: `${stats.merchants_count}`,
+              tone: "navy" as const,
+            },
+            {
+              title: "عدد الزبائن",
+              value: `${stats.total_customers}`,
+              tone: "mint" as const,
+            },
+            {
+              title: "عمولة المنصة",
+              value: money(stats.platform_amounts),
+              tone: "mint" as const,
+            },
+            {
+              title: "عمولة المصرف",
+              value: money(stats.bank_amounts),
+              tone: "gold" as const,
+            },
+            {
+              title: "نسبة المستثمرين",
+              value: money(stats.investor_commission_amounts ?? 0),
+              tone: "mint" as const,
+            },
+            {
+              title: "إجمالي الخطط",
+              value: money(stats.total_amounts),
+              tone: "navy" as const,
+            },
+            {
+              title: "المتبقي على الزبائن",
+              value: money(stats.remaining_amounts),
+              tone: "gold" as const,
+            },
+            {
+              title: "دفعات التجار النقدية هذا الشهر",
+              value: money(stats.due_this_month_amount ?? 0),
+              tone: "gold" as const,
+            },
+            {
+              title: "عدد المستثمرين",
+              value: `${stats.investors_count ?? 0}`,
+              tone: "navy" as const,
+            },
+            {
+              title: "العقود الاستثمارية",
+              value: `${stats.investments_count ?? 0}`,
+              tone: "mint" as const,
+            },
+            {
+              title: "أصل استثمارات",
+              value: money(stats.investor_principal_total ?? 0),
+              tone: "mint" as const,
+            },
+            {
+              title: "بعد الفائدة (مستثمرين)",
+              value: money(stats.investor_total_with_interest ?? 0),
+              tone: "navy" as const,
+            },
+            {
+              title: "مصروف للمستثمرين",
+              value: money(stats.investor_paid_amount ?? 0),
+              tone: "mint" as const,
+            },
+            {
+              title: "متبقي للمستثمرين",
+              value: money(stats.investor_remaining_amount ?? 0),
+              tone: "gold" as const,
+            },
+            {
+              title: "مستحق للمستثمرين هذا الشهر",
+              value: money(stats.investor_due_this_month_amount ?? 0),
+              tone: "gold" as const,
+            },
+          ]
+        : [
+            {
+              title: "اجمالي المبالغ",
+              value: money(stats.total_amounts),
+              tone: "navy" as const,
+            },
+            {
+              title: "اجمالي المبالغ بعد النسب",
+              value: money(stats.financed_amounts),
+              tone: "white" as const,
+            },
+            {
+              title: "مستحقاتك",
+              value: money(stats.due_this_month_amount ?? 0),
+              tone: "gold" as const,
+            },
+            {
+              title: "عدد الزبائن",
+              value: `${stats.total_customers} زبون`,
+              tone: "navy" as const,
+            },
+            {
+              title: "الخطط النشطة",
+              value: `${stats.remaining_count}`,
+              tone: "white" as const,
+            },
+          ];
 
   if (compact) {
     return (
@@ -240,28 +225,8 @@ export function StatsGrid({
 
   return (
     <div className="mx-4 mt-4 space-y-2">
-      <div className="grid grid-cols-2 gap-2">
-        {items.slice(0, 2).map((item) => (
-          <StatCard
-            key={item.title}
-            title={item.title}
-            value={item.value}
-            tone={item.tone}
-          />
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {items.slice(2, 5).map((item) => (
-          <StatCard
-            key={item.title}
-            title={item.title}
-            value={item.value}
-            tone={item.tone}
-          />
-        ))}
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {items.slice(5).map((item) => (
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((item) => (
           <StatCard
             key={item.title}
             title={item.title}

@@ -85,7 +85,33 @@ export function MerchantCard({ merchant, index, onOpen }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 text-center">
+      <div className="mb-2 grid grid-cols-3 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 text-center">
+        <div>
+          <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
+            المصرف
+          </div>
+          <div className="text-[13px] font-extrabold text-[var(--basic)]">
+            {merchant.bank_percent}%
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
+            المنصة
+          </div>
+          <div className="text-[13px] font-extrabold text-[var(--basic)]">
+            {merchant.platform_percent}%
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
+            المستثمر
+          </div>
+          <div className="text-[13px] font-extrabold text-[var(--basic)]">
+            {merchant.investor_percent ?? 0}%
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 text-center">
         <div>
           <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
             الزبائن
@@ -100,15 +126,6 @@ export function MerchantCard({ merchant, index, onOpen }: Props) {
           </div>
           <div className="text-[13px] font-extrabold text-[var(--basic)]">
             {money(merchant.platform_amounts)}
-          </div>
-        </div>
-        <div>
-          <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
-            النسب
-          </div>
-          <div className="text-[12px] font-extrabold text-[var(--basic)]">
-            {merchant.bank_percent}% / {merchant.platform_percent}% /{" "}
-            {merchant.investor_percent ?? 0}%
           </div>
         </div>
       </div>

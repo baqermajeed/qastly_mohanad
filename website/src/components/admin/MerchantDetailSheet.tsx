@@ -130,10 +130,12 @@ export function MerchantDetailSheet({
       setError(`مبلغ التسديد أكبر من المستحقات (${money(dueAmount)} د.ع)`);
       return;
     }
+    const carriedNote =
+      carried > 0 ? `\nمنها مرحّل: ${money(carried)} د.ع` : "";
     const ok = window.confirm(
       amount + 0.01 >= dueAmount
-        ? `تسديد المستحقات بالكامل (${money(dueAmount)} د.ع)؟`
-        : `تسديد ${money(amount)} د.ع من أصل ${money(dueAmount)} د.ع؟ المتبقي سيبقى مستحقاً وتُضاف عليه الخطط الجديدة.`,
+        ? `تسديد المستحقات بالكامل (${money(dueAmount)} د.ع)؟${carriedNote}`
+        : `تسديد ${money(amount)} د.ع من أصل ${money(dueAmount)} د.ع؟${carriedNote}\nالمتبقي سيبقى مستحقاً وتُضاف عليه الخطط الجديدة.`,
     );
     if (!ok) return;
     setConfirming(true);
@@ -349,7 +351,7 @@ export function MerchantDetailSheet({
                 </div>
                 {confirmed ? (
                   <div className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#9AD4B8] bg-[#E7F7EF] px-4 text-[13px] font-extrabold text-[#0E8A61]">
-                    لا مستحقات معلّقة
+                    تم التأكيد
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -402,6 +404,22 @@ export function MerchantDetailSheet({
                         <div className="grid grid-cols-2 gap-2 text-[12px]">
                           <div>
                             <div className="font-semibold text-[var(--basic)]/45">
+                              الهاتف
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {c.phone}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
+                              المبلغ الكلي
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {money(c.total_amount)} د.ع
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
                               مستحق التاجر
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
@@ -420,10 +438,18 @@ export function MerchantDetailSheet({
                           </div>
                           <div>
                             <div className="font-semibold text-[var(--basic)]/45">
-                              الهاتف
+                              أشهر الزبون
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
-                              {c.phone}
+                              {c.months_count}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
+                              قسط الزبون
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {money(c.monthly_payment)} د.ع
                             </div>
                           </div>
                           <div>
@@ -432,6 +458,18 @@ export function MerchantDetailSheet({
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
                               {money(c.remaining_amount)} د.ع
+                            </div>
+                          </div>
+                          <div>
+                            <div className="font-semibold text-[var(--basic)]/45">
+                              التسجيل
+                            </div>
+                            <div className="font-extrabold text-[#0B3A5C]">
+                              {c.registration_date
+                                ? new Date(
+                                    c.registration_date,
+                                  ).toLocaleDateString("ar-IQ")
+                                : "—"}
                             </div>
                           </div>
                         </div>

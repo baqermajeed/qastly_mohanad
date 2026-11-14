@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { money, statusLabel } from "@/lib/format";
+import { formatDateString, money, statusLabel } from "@/lib/format";
 import type { Customer } from "@/lib/types";
 
 type Props = {
@@ -11,29 +11,13 @@ type Props = {
   showMerchant?: boolean;
 };
 
-function MoneyCell({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: "total" | "remain" | "month";
-}) {
-  const iconSrc =
-    icon === "remain"
-      ? "/images/Calendar, Coins, and Alert Badge.png"
-      : icon === "month"
-        ? "/images/Calendar, Credit Card, and Gold Coins.png"
-        : "/images/stat_icon.png";
-
+function MetaCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-center">
-      <div className="mb-1 flex items-center justify-center gap-1 text-[11px] font-bold text-[var(--basic)]/55">
-        <Image src={iconSrc} alt="" width={16} height={16} />
-        <span>{label}</span>
+      <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
+        {label}
       </div>
-      <div className="text-[13px] font-extrabold text-[var(--basic)]">
+      <div className="text-[12px] font-extrabold text-[var(--basic)]">
         {value}
       </div>
     </div>
@@ -107,21 +91,31 @@ export function CustomerCard({
         </div>
       </div>
 
+      <div className="mb-2 grid grid-cols-2 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 sm:grid-cols-4">
+        <MetaCell label="محافظة" value={customer.governorate || "—"} />
+        <MetaCell
+          label="تاريخ التسجيل"
+          value={formatDateString(customer.registration_date)}
+        />
+        <MetaCell label="عدد الأشهر" value={`${customer.months_count}`} />
+        <MetaCell
+          label="أشهر متبقية"
+          value={`${customer.remaining_months}`}
+        />
+      </div>
+
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3">
-        <MoneyCell
+        <MetaCell
           label="المبلغ الكلي"
           value={money(customer.total_amount)}
-          icon="total"
         />
-        <MoneyCell
+        <MetaCell
           label="المبلغ المتبقي"
           value={money(customer.remaining_amount)}
-          icon="remain"
         />
-        <MoneyCell
+        <MetaCell
           label="الدفعة الشهرية"
           value={money(customer.monthly_payment)}
-          icon="month"
         />
       </div>
     </article>

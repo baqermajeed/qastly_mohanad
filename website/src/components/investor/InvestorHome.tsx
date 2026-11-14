@@ -130,21 +130,20 @@ export function InvestorHome({ user, onLogout }: Props) {
                   "mint",
                 ],
                 [
-                  "المبالغ المستلمة",
-                  money(investor?.paid_amount ?? 0),
-                  "mint",
-                ],
-                [
-                  "المبالغ المتبقية",
-                  money(investor?.remaining_amount ?? 0),
-                  "gold",
-                ],
-                [
                   "قسط هذا الشهر",
                   money(investor?.due_this_month_amount ?? 0),
                   "gold",
                 ],
-                ["عدد العقود", `${investor?.investments_count ?? 0}`, "navy"],
+                [
+                  "المبالغ المستلمة (كل العقود)",
+                  money(investor?.paid_amount ?? 0),
+                  "mint",
+                ],
+                [
+                  "المبالغ المتبقية (كل العقود)",
+                  money(investor?.remaining_amount ?? 0),
+                  "gold",
+                ],
               ] as const
             ).map(([title, value, tone]) => (
               <div

@@ -20,8 +20,10 @@ import {
   type FiltersState,
 } from "@/components/home/FiltersSheet";
 import { MobileHeader } from "@/components/home/MobileHeader";
+import { PromoBanner } from "@/components/home/PromoBanner";
 import { SearchBar } from "@/components/home/SearchBar";
 import { SideMenu } from "@/components/home/SideMenu";
+import { StatsGrid } from "@/components/home/StatsGrid";
 import { InvestorHome } from "@/components/investor/InvestorHome";
 
 const PAGE_SIZE = 10;
@@ -255,6 +257,8 @@ export default function HomePage() {
         onProfile={() => setMenuOpen(true)}
       />
       <SearchBar value={queryInput} onChange={setQueryInput} />
+      <PromoBanner />
+      <StatsGrid stats={stats} variant="merchant" />
 
       <section className="mx-4 mt-5 flex items-center gap-2">
         <button
