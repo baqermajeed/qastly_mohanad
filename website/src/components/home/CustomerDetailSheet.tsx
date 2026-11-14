@@ -142,10 +142,12 @@ export function CustomerDetailSheet({
     }
   }
 
-  const firstDue = formatDateString(customer?.first_due_date);
-  const lastPayment = customer?.last_payment_date
+  const firstDue = customer?.first_due_date
+    ? formatDateString(customer.first_due_date)
+    : "—";
+  const lastDue = customer?.last_payment_date
     ? formatDateString(customer.last_payment_date)
-    : "لا توجد";
+    : "—";
 
   return (
     <>
@@ -347,23 +349,14 @@ export function CustomerDetailSheet({
                     tone="blue"
                   />
                   <MoneyTile
-                    label="أول دفعة"
+                    label="تاريخ أول دفعة"
                     value={firstDue}
                     tone="cyan"
                   />
                   <MoneyTile
-                    label="الدفعة القادمة"
-                    value={
-                      customer.next_due_date
-                        ? formatDateString(customer.next_due_date)
-                        : "لا توجد"
-                    }
-                    tone="blue"
-                  />
-                  <MoneyTile
                     label="تاريخ آخر دفعة"
-                    value={lastPayment}
-                    tone="cyan"
+                    value={lastDue}
+                    tone="blue"
                   />
                 </div>
               </section>

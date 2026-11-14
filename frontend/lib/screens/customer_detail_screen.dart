@@ -706,8 +706,7 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
 
   Widget _planRow(Customer c) {
     final firstDue = c.firstDueDate;
-    final nextDue = c.nextDueDate;
-    final lastPay = c.lastPaymentDate;
+    final lastDue = c.lastPaymentDate;
     return Row(
       children: [
         Expanded(
@@ -722,12 +721,8 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         const SizedBox(width: 10),
         Expanded(
           child: _statCard(
-            label: firstDue == null
-                ? 'أول دفعة'
-                : 'أول دفعة ${_dateFmt.format(firstDue)}',
-            value: nextDue == null
-                ? 'لا توجد دفعات قادمة'
-                : 'القادمة ${_dateFmt.format(nextDue)}',
+            label: 'تاريخ أول دفعة',
+            value: firstDue == null ? '—' : _dateFmt.format(firstDue),
             icon: Icons.event_available_outlined,
             background: const Color(0xFFEAF6FB),
             iconColor: const Color(0xFF069BAF),
@@ -737,8 +732,8 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
         Expanded(
           child: _statCard(
             label: 'تاريخ آخر دفعة',
-            value: lastPay == null ? 'لا توجد' : _dateFmt.format(lastPay),
-            icon: Icons.history_outlined,
+            value: lastDue == null ? '—' : _dateFmt.format(lastDue),
+            icon: Icons.event_outlined,
             background: const Color(0xFFF7EFDC),
             iconColor: const Color(0xFFC38508),
           ),
