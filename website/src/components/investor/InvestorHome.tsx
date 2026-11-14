@@ -9,7 +9,9 @@ import { formatDateString, money } from "@/lib/format";
 import type { AppUser, Investment, Investor } from "@/lib/types";
 import { InvestorDetailSheet } from "@/components/admin/InvestorDetailSheet";
 import { MobileHeader } from "@/components/home/MobileHeader";
+import { PromoBanner } from "@/components/home/PromoBanner";
 import { SideMenu } from "@/components/home/SideMenu";
+import { StatsGrid } from "@/components/home/StatsGrid";
 
 type Props = {
   user: AppUser | null;
@@ -94,14 +96,11 @@ export function InvestorHome({ user, onLogout }: Props) {
         roleLabel="مستثمر"
       />
 
-      <section className="mx-4 mt-4">
-        <h1 className="text-[20px] font-extrabold text-[var(--basic)]">
-          لوحة المستثمر
-        </h1>
-        <p className="mt-1 text-[12px] font-semibold text-[var(--basic)]/55">
-          كل عقد استثماري مستقل — الرصيد الظاهر مجموع عقودك.
-        </p>
-      </section>
+      <PromoBanner
+        title="مرحبا بك في نظام قسطلي💸"
+        subtitle="عقودك الاستثمارية مستقلة، وأقساطك تُحتسب حسب كل عقد"
+      />
+      <StatsGrid stats={statsForMenu} variant="investor" />
 
       {loading ? (
         <div className="mx-4 mt-10 text-center text-sm font-bold text-[var(--soft)]">
@@ -120,52 +119,6 @@ export function InvestorHome({ user, onLogout }: Props) {
         </div>
       ) : (
         <>
-          <section className="mx-4 mt-4 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["أصل الرصيد", money(investor?.principal_total ?? 0), "navy"],
-                [
-                  "بعد الفائدة",
-                  money(investor?.total_with_interest ?? 0),
-                  "mint",
-                ],
-                [
-                  "قسط هذا الشهر",
-                  money(investor?.due_this_month_amount ?? 0),
-                  "gold",
-                ],
-                [
-                  "المبالغ المستلمة (كل العقود)",
-                  money(investor?.paid_amount ?? 0),
-                  "mint",
-                ],
-                [
-                  "المبالغ المتبقية (كل العقود)",
-                  money(investor?.remaining_amount ?? 0),
-                  "gold",
-                ],
-              ] as const
-            ).map(([title, value, tone]) => (
-              <div
-                key={title}
-                className={`rounded-2xl p-3 ${
-                  tone === "mint"
-                    ? "bg-[#D2E9E6]"
-                    : tone === "gold"
-                      ? "bg-[#F7EFDC]"
-                      : "bg-[#DCE8F1]"
-                }`}
-              >
-                <div className="text-[11px] font-bold text-[var(--basic)]/65">
-                  {title}
-                </div>
-                <div className="mt-1 text-[15px] font-extrabold text-[var(--basic)]">
-                  {value}
-                </div>
-              </div>
-            ))}
-          </section>
-
           <section className="mx-4 mt-5">
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-[17px] font-extrabold text-[var(--basic)]">

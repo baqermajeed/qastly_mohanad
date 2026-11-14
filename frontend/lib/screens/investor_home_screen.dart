@@ -6,8 +6,10 @@ import '../models/page_result.dart';
 import '../services/api_service.dart';
 import '../services/auth_session.dart';
 import '../utils/format.dart';
+import '../widgets/app_sidebar.dart';
 import '../widgets/dashboard_stat_card.dart';
 import '../widgets/home_header.dart';
+import '../widgets/promo_banner.dart';
 import 'investor_detail_screen.dart';
 
 class InvestorHomeScreen extends StatefulWidget {
@@ -112,118 +114,130 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HomeHeader(
-                searchController: _searchController,
-                customers: const [],
-                user: widget.auth.user,
-                onLogout: widget.auth.logout,
-                onQueryChanged: (_) {},
-                onSearch: () {},
-                onSelectCustomer: (_) {},
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'لوحة المستثمر',
-                style: AppTheme.text(fontSize: 24, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'كل عقد استثماري مستقل — الرصيد الظاهر مجموع عقودك.',
-                style: AppTheme.text(
-                  fontSize: 13,
-                  color: AppTheme.basic.withValues(alpha: 0.65),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(color: AppTheme.soft),
-                      )
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(_error!, textAlign: TextAlign.center),
-                                const SizedBox(height: 12),
-                                FilledButton(
-                                  onPressed: _load,
-                                  child: const Text('إعادة المحاولة'),
-                                ),
-                              ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: constraints.maxWidth < 1440 ? 1440 : constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppSidebar(
+                    active: SidebarNav.home,
+                    overdueCount: 0,
+                    onSelect: (_) {},
+                  ),
+                  Expanded(
+                    child: _loading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.soft,
                             ),
                           )
-                        : RefreshIndicator(
-                            color: AppTheme.soft,
-                            onRefresh: () => _load(silent: true),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                return SingleChildScrollView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minHeight: constraints.maxHeight,
+                        : _error != null
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _error!,
+                                        textAlign: TextAlign.center,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      FilledButton(
+                                        onPressed: _load,
+                                        child: const Text('إعادة المحاولة'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  30,
+                                  18,
+                                  30,
+                                  20,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    HomeHeader(
+                                      searchController: _searchController,
+                                      customers: const [],
+                                      user: widget.auth.user,
+                                      onLogout: widget.auth.logout,
+                                      onQueryChanged: (_) {},
+                                      onSearch: () {},
+                                      onSelectCustomer: (_) {},
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
+                                    const SizedBox(height: 23),
+                                    const PromoBanner(
+                                      title: 'مرحبا بك في نظام قسطلي💸',
+                                      subtitle:
+                                          'عقودك الاستثمارية مستقلة، وأقساطك تُحتسب حسب كل عقد',
+                                    ),
+                                    const SizedBox(height: 26),
+                                    _stats(),
+                                    const SizedBox(height: 22),
+                                    Row(
                                       children: [
-                                        _stats(),
-                                        const SizedBox(height: 22),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'عقودي الاستثمارية',
-                                              style: AppTheme.text(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 10,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.soft
-                                                    .withValues(alpha: 0.12),
-                                                borderRadius:
-                                                    BorderRadius.circular(20),
-                                              ),
-                                              child: Text(
-                                                '${_investments.items.length}',
-                                                style: AppTheme.text(
-                                                  color: AppTheme.soft,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                        Text(
+                                          'عقودي الاستثمارية',
+                                          style: AppTheme.text(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
-                                        const SizedBox(height: 12),
-                                        _contractsTable(),
+                                        const SizedBox(width: 10),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.soft
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            '${_investments.items.length}',
+                                            style: AppTheme.text(
+                                              color: AppTheme.soft,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+                                    const SizedBox(height: 12),
+                                    Expanded(
+                                      child: RefreshIndicator(
+                                        color: AppTheme.soft,
+                                        onRefresh: () => _load(silent: true),
+                                        child: SingleChildScrollView(
+                                          physics:
+                                              const AlwaysScrollableScrollPhysics(),
+                                          child: _contractsTable(),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

@@ -7,7 +7,15 @@ import '../core/assets.dart';
 import '../core/theme.dart';
 
 class PromoBanner extends StatelessWidget {
-  const PromoBanner({super.key});
+  const PromoBanner({
+    super.key,
+    this.title = 'مرحبا بك في نظام قسطلي💸',
+    this.subtitle =
+        'أضف زبائنك وخطط أقساطهم، ومستحقاتك نقدية فورية بعد النسب',
+  });
+
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -54,15 +62,15 @@ class PromoBanner extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               // في RTL: start = اليمين، حتى يتطابق يمين الكونتينرين
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 _FrostedText(
-                  text: 'مرحبا بك في نظام قسطلي💸',
+                  text: title,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _FrostedText(
-                  text: 'أضف زبائنك وخطط أقساطهم، ومستحقاتك نقدية فورية بعد النسب',
+                  text: subtitle,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   lineHeight: 1.4,
