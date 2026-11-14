@@ -323,6 +323,22 @@ class ApiService {
     return Investor.fromJson(_decode(res));
   }
 
+  Future<Investor> confirmInvestorDues(
+    String id, {
+    double? amount,
+  }) async {
+    final res = await _send(
+      () => _client.post(
+        Uri.parse('$_base/api/investors/$id/confirm-dues'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          if (amount != null) 'amount': amount,
+        }),
+      ),
+    );
+    return Investor.fromJson(_decode(res));
+  }
+
   Future<Investor> createInvestor({
     required String username,
     required String password,

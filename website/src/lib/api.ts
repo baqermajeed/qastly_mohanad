@@ -317,6 +317,13 @@ export async function getInvestor(id: string) {
   return request<Investor>(`/api/investors/${id}`);
 }
 
+export async function confirmInvestorDues(id: string, amount?: number) {
+  return request<Investor>(`/api/investors/${id}/confirm-dues`, {
+    method: "POST",
+    body: JSON.stringify(amount != null ? { amount } : {}),
+  });
+}
+
 export async function createInvestor(payload: {
   username: string;
   password: string;

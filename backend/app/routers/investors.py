@@ -1,7 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.database import get_db
-from app.schemas.investor import InvestorCreate, InvestorOut, InvestorUpdate
+from app.schemas.investor import (
+    InvestorConfirmDues,
+    InvestorCreate,
+    InvestorOut,
+    InvestorUpdate,
+)
 from app.schemas.pagination import Page
 from app.services import auth as auth_service
 from app.services import investors as investor_service
@@ -51,3 +56,14 @@ async def update_investor(
     _: object = Depends(auth_service.require_admin),
 ) -> InvestorOut:
     return await investor_service.update_investor(get_db(), investor_id, payload)
+
+
+@router.post("/{investor_id}/confirm-dues", response_model=InvestorOut)
+async def confirm_investor_dues(
+    investor_id: str,
+    payload: InvestorConfirmDues = InvestorConfirmDues(),
+    current_user=Depends(auth_service.require_admin),
+) -> InvestorOut:
+    return await investor_service.confirm_investor_dues(
+        get_db(), current_user, investor_id, payload
+    )

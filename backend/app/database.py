@@ -37,6 +37,10 @@ async def connect_db() -> None:
         [("merchant_id", 1), ("year_month", 1)],
         unique=True,
     )
+    await db.investor_settlements.create_index(
+        [("investor_id", 1), ("year_month", 1)],
+        unique=True,
+    )
     await db.sessions.create_index("token_hash", unique=True)
     await db.sessions.create_index("expires_at", expireAfterSeconds=0)
     await ensure_default_admin(db)

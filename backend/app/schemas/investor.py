@@ -63,6 +63,12 @@ class InvestorUpdate(BaseModel):
         return _normalize_master(value)
 
 
+class InvestorConfirmDues(BaseModel):
+    """تسديد مستحقات المستثمر — كلياً أو جزئياً."""
+
+    amount: float | None = Field(default=None, gt=0)
+
+
 class InvestorOut(BaseModel):
     id: str
     username: str

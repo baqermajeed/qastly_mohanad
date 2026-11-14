@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/theme.dart';
 import '../models/investor.dart';
@@ -48,7 +49,6 @@ class InvestorDetailDialog extends StatefulWidget {
 class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   late Investor _investor;
   PageResult<Investment> _investments = PageResult.empty(pageSize: 50);
-  Investment? _selected;
   bool _loading = true;
   bool _busy = false;
   String? _error;
@@ -58,6 +58,7 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   static const _fieldBorder = Color(0xFFD5E8F2);
   static const _heroTop = Color(0xFF064E6A);
   static const _heroBottom = Color(0xFF069BAF);
+  static const _paidGreen = Color(0xFF0E8A61);
 
   @override
   void initState() {
@@ -78,27 +79,10 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
         page: 1,
         pageSize: 50,
       );
-      Investment? selected;
-      final preferredId = _selected?.id ?? widget.initialInvestmentId;
-      final targetId = preferredId ??
-          (investments.items.isNotEmpty ? investments.items.first.id : null);
-      if (targetId != null) {
-        try {
-          selected = await widget.api.getInvestment(targetId);
-        } catch (_) {
-          for (final item in investments.items) {
-            if (item.id == targetId) {
-              selected = item;
-              break;
-            }
-          }
-        }
-      }
       if (!mounted) return;
       setState(() {
         _investor = investor;
         _investments = investments;
-        _selected = selected;
         _loading = false;
       });
     } catch (e) {
@@ -135,30 +119,124 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     }
   }
 
-  Future<void> _selectInvestment(String id) async {
-    setState(() => _busy = true);
-    try {
-      final full = await widget.api.getInvestment(id);
-      if (!mounted) return;
-      setState(() => _selected = full);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  Future<void> _settleDues() async {
+    if (_busy) return;
+    final outstanding = _investor.dueThisMonthAmount;
+    if (outstanding <= 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد مستحقات معلقة للتأكيد')),
+      );
+      return;
     }
-  }
 
-  Future<void> _confirmAll() async {
-    final inv = _selected;
-    if (inv == null) return;
+    final amountCtrl = TextEditingController(
+      text: outstanding == outstanding.roundToDouble()
+          ? outstanding.toInt().toString()
+          : outstanding.toStringAsFixed(2),
+    );
+    final payAmount = await showDialog<double>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text(
+            'تسديد مستحقات المستثمر',
+            style: AppTheme.text(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'مستحقات هذا الشهر: ${money(outstanding)} د.ع'
+                '\nيمكنك تسديد المبلغ كاملاً أو جزءاً منه.',
+                style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'مبلغ التسديد',
+                  hintText: 'مثال: ${(outstanding / 2).round()}',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'إلغاء',
+                style: AppTheme.text(
+                  color: AppTheme.basic.withValues(alpha: 0.55),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () {
+                final raw = amountCtrl.text.trim().replaceAll(',', '');
+                final value = double.tryParse(raw);
+                if (value == null || value <= 0) return;
+                Navigator.pop(ctx, value);
+              },
+              style: FilledButton.styleFrom(backgroundColor: _paidGreen),
+              child: Text(
+                'تأكيد التسديد',
+                style: AppTheme.text(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    amountCtrl.dispose();
+    if (payAmount == null || !mounted) return;
+    if (payAmount > outstanding + 0.01) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'مبلغ التسديد أكبر من المستحقات (${money(outstanding)} د.ع)',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _busy = true);
     try {
-      final updated = await widget.api.confirmInvestmentPayouts(inv.id);
+      final updated = await widget.api.confirmInvestorDues(
+        _investor.id,
+        amount: payAmount,
+      );
       if (!mounted) return;
-      setState(() => _selected = updated);
-      _changed = true;
+      setState(() {
+        _investor = updated;
+        _changed = true;
+      });
       await _load();
+      if (!mounted) return;
+      final remaining = _investor.dueThisMonthAmount;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            remaining > 0.01
+                ? 'تم تسديد ${money(payAmount)} د.ع — المتبقي ${money(remaining)} د.ع'
+                : 'تم تسديد المستحقات بالكامل',
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -170,8 +248,8 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final width = (size.width * 0.34).clamp(360.0, 440.0);
-    final height = (size.height * 0.62).clamp(420.0, 560.0);
+    final width = (size.width * 0.42).clamp(420.0, 560.0);
+    final height = (size.height * 0.88).clamp(560.0, 820.0);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -183,7 +261,6 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
           color: const Color(0xFFF7FBFD),
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
-          elevation: 0,
           child: Column(
             children: [
               _header(),
@@ -301,115 +378,151 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   }
 
   Widget _body() {
-    final inv = _selected;
-    if (inv == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'لا يوجد عقد لعرضه',
-                style: AppTheme.text(
-                  color: AppTheme.basic.withValues(alpha: 0.55),
-                ),
-              ),
-              if (widget.isAdmin) ...[
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _openAddInvestment,
-                  style: FilledButton.styleFrom(backgroundColor: _actionBlue),
-                  child: const Text('إضافة عقد استثمار'),
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-    }
-
-    final unpaid = inv.payouts.where((p) => !p.paid).toList();
-    final lastDue = lastDueDate(
-      firstDue: inv.firstDueDate,
-      monthsCount: inv.monthsCount,
-    );
-
+    final due = _investor.dueThisMonthAmount;
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
       children: [
-        if (widget.isAdmin && _investments.items.length > 1) ...[
-          DropdownButtonFormField<String>(
-            value: inv.id,
-            decoration: InputDecoration(
-              labelText: 'العقد',
-              isDense: true,
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: _fieldBorder),
+        Text(
+          'إحصائيات عامة',
+          style: AppTheme.text(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        _metricsGrid([
+          ('عدد العقود', '${_investor.investmentsCount}'),
+          ('أصل الرصيد', money(_investor.principalTotal)),
+          ('بعد الفائدة', money(_investor.totalWithInterest)),
+          ('المستلم', money(_investor.paidAmount)),
+          ('المتبقي', money(_investor.remainingAmount)),
+          ('القسط الشهري', money(_investor.monthlyPayoutTotal)),
+        ]),
+        const SizedBox(height: 14),
+        _dueCard(due),
+        if (widget.isAdmin) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton(
+              onPressed: _busy || due <= 0.01 ? null : _settleDues,
+              style: FilledButton.styleFrom(
+                backgroundColor: _paidGreen,
+                disabledBackgroundColor: _paidGreen.withValues(alpha: 0.35),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: _fieldBorder),
+              child: Text(
+                due <= 0.01 ? 'لا مستحقات حالياً' : 'تسديد المستحقات',
+                style: AppTheme.text(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
               ),
             ),
-            items: [
-              for (final item in _investments.items)
-                DropdownMenuItem(
-                  value: item.id,
-                  child: Text(
-                    '${money(item.principal)} · ${item.monthsCount} شهر',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-            onChanged: _busy
-                ? null
-                : (id) {
-                    if (id != null) _selectInvestment(id);
-                  },
           ),
-          const SizedBox(height: 12),
         ],
+        const SizedBox(height: 18),
         Row(
           children: [
             Expanded(
               child: Text(
-                'معلومات وإحصائيات العقد',
+                'العقود الاستثمارية',
+                style: AppTheme.text(fontSize: 15, fontWeight: FontWeight.w800),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: _fieldBorder),
+              ),
+              child: Text(
+                '${_investments.items.length}',
                 style: AppTheme.text(
-                  fontSize: 15,
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
+                  color: AppTheme.soft,
                 ),
               ),
             ),
-            if (widget.isAdmin && unpaid.isNotEmpty)
-              TextButton(
-                onPressed: _busy ? null : _confirmAll,
-                child: const Text('تأكيد المستحق'),
-              ),
           ],
         ),
-        const SizedBox(height: 12),
-        _metricsGrid(inv),
-        const SizedBox(height: 12),
-        _datesRow(
-          first: formatDayMonth(inv.firstDueDate),
-          last: lastDue == null ? '—' : formatDayMonth(lastDue),
-        ),
+        const SizedBox(height: 10),
+        if (_investments.items.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _fieldBorder),
+            ),
+            child: Text(
+              'لا توجد عقود بعد',
+              textAlign: TextAlign.center,
+              style: AppTheme.text(
+                color: AppTheme.basic.withValues(alpha: 0.5),
+              ),
+            ),
+          )
+        else
+          for (var i = 0; i < _investments.items.length; i++) ...[
+            _contractCard(i + 1, _investments.items[i]),
+            if (i != _investments.items.length - 1) const SizedBox(height: 8),
+          ],
       ],
     );
   }
 
-  Widget _metricsGrid(Investment inv) {
-    final items = [
-      ('القسط الشهري', money(inv.monthlyPayout)),
-      ('عدد الأشهر', '${inv.monthsCount}'),
-      ('أشهر متبقية', '${inv.remainingMonths}'),
-      ('المستلم', money(inv.paidAmount)),
-      ('المتبقي', money(inv.remainingAmount)),
-    ];
+  Widget _dueCard(double due) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [_heroTop, _heroBottom],
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'مستحقاته هذا الشهر',
+                  style: AppTheme.text(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  money(due),
+                  style: AppTheme.text(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            color: Colors.white.withValues(alpha: 0.9),
+            size: 28,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricsGrid(List<(String, String)> items) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -461,56 +574,120 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
-  Widget _datesRow({required String first, required String last}) {
-    return Row(
-      children: [
-        Expanded(child: _dateTile('أول دفعة', first, Icons.play_arrow_rounded)),
-        const SizedBox(width: 8),
-        Expanded(child: _dateTile('آخر دفعة', last, Icons.flag_rounded)),
-      ],
+  Widget _contractCard(int index, Investment item) {
+    final statusColor = switch (item.status) {
+      InvestmentStatus.completed => _paidGreen,
+      InvestmentStatus.cancelled => const Color(0xFFC0392B),
+      _ => _actionBlue,
+    };
+    final last = lastDueDate(
+      firstDue: item.firstDueDate,
+      monthsCount: item.monthsCount,
     );
-  }
-
-  Widget _dateTile(String label, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _fieldBorder),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F5FC),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: _actionBlue),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F4FB),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  index.toString().padLeft(2, '0'),
                   style: AppTheme.text(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.basic.withValues(alpha: 0.5),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.soft,
                   ),
                 ),
-                Text(
-                  value,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      money(item.principal),
+                      style: AppTheme.text(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'فائدة ${item.interestPercent}%',
+                      style: AppTheme.text(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.basic.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  investmentStatusLabel(item.status),
                   style: AppTheme.text(
-                    fontSize: 13,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7FBFD),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _miniStat('بعد الفائدة', money(item.totalWithInterest)),
+                ),
+                Expanded(
+                  child: _miniStat('القسط', money(item.monthlyPayout)),
+                ),
+                Expanded(
+                  child: _miniStat(
+                    'المتبقي',
+                    money(item.remainingAmount),
+                    valueColor: const Color(0xFFC38508),
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'أول قسط ${formatDayMonth(item.firstDueDate)}'
+            ' · آخر قسط ${last == null ? '—' : formatDayMonth(last)}'
+            ' · ${item.remainingMonths}/${item.monthsCount} شهر',
+            style: AppTheme.text(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.basic.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -518,4 +695,27 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
+  Widget _miniStat(String label, String value, {Color? valueColor}) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: AppTheme.text(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.basic.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: AppTheme.text(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
 }
