@@ -56,6 +56,8 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
 
   static const _actionBlue = Color(0xFF1E88C8);
   static const _fieldBorder = Color(0xFFD5E8F2);
+  static const _heroTop = Color(0xFF064E6A);
+  static const _heroBottom = Color(0xFF069BAF);
 
   @override
   void initState() {
@@ -70,21 +72,26 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
       _error = null;
     });
     try {
-      final investor = widget.isAdmin
-          ? await widget.api.getInvestor(widget.investor.id)
-          : await widget.api.getInvestor(widget.investor.id);
+      final investor = await widget.api.getInvestor(widget.investor.id);
       final investments = await widget.api.getInvestments(
         investorId: widget.investor.id,
         page: 1,
         pageSize: 50,
       );
       Investment? selected;
-      final selectedId = _selected?.id ?? widget.initialInvestmentId;
-      if (selectedId != null) {
+      final preferredId = _selected?.id ?? widget.initialInvestmentId;
+      final targetId = preferredId ??
+          (investments.items.isNotEmpty ? investments.items.first.id : null);
+      if (targetId != null) {
         try {
-          selected = await widget.api.getInvestment(selectedId);
+          selected = await widget.api.getInvestment(targetId);
         } catch (_) {
-          selected = null;
+          for (final item in investments.items) {
+            if (item.id == targetId) {
+              selected = item;
+              break;
+            }
+          }
         }
       }
       if (!mounted) return;
@@ -128,10 +135,10 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     }
   }
 
-  Future<void> _openInvestment(Investment item) async {
+  Future<void> _selectInvestment(String id) async {
     setState(() => _busy = true);
     try {
-      final full = await widget.api.getInvestment(item.id);
+      final full = await widget.api.getInvestment(id);
       if (!mounted) return;
       setState(() => _selected = full);
     } catch (e) {
@@ -160,38 +167,23 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     }
   }
 
-  Future<void> _confirmOne(InvestorPayout payout) async {
-    setState(() => _busy = true);
-    try {
-      final updated = await widget.api.confirmPayout(payout.id);
-      if (!mounted) return;
-      setState(() => _selected = updated);
-      _changed = true;
-      await _load();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final width = (size.width * 0.86).clamp(860.0, 1180.0);
-    final height = (size.height * 0.9).clamp(620.0, 900.0);
+    final width = (size.width * 0.34).clamp(360.0, 440.0);
+    final height = (size.height * 0.62).clamp(420.0, 560.0);
 
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: SizedBox(
         width: width,
         height: height,
         child: Material(
-          color: Colors.white,
+          color: const Color(0xFFF7FBFD),
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAlias,
+          elevation: 0,
           child: Column(
             children: [
               _header(),
@@ -202,25 +194,22 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
                       )
                     : _error != null
                         ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(_error!, textAlign: TextAlign.center),
-                                const SizedBox(height: 12),
-                                FilledButton(
-                                  onPressed: _load,
-                                  child: const Text('إعادة المحاولة'),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(_error!, textAlign: TextAlign.center),
+                                  const SizedBox(height: 12),
+                                  FilledButton(
+                                    onPressed: _load,
+                                    child: const Text('إعادة المحاولة'),
+                                  ),
+                                ],
+                              ),
                             ),
                           )
-                        : Row(
-                            children: [
-                              Expanded(flex: 5, child: _contractsPane()),
-                              Container(width: 1, color: _fieldBorder),
-                              Expanded(flex: 6, child: _detailPane()),
-                            ],
-                          ),
+                        : _body(),
               ),
             ],
           ),
@@ -230,53 +219,80 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
   }
 
   Widget _header() {
+    final name = _investor.fullName.trim();
+    final initial = name.isEmpty ? 'م' : name[0];
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 18, 14, 18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       decoration: const BoxDecoration(
-        color: Color(0xFFF3FAFD),
+        color: Colors.white,
         border: Border(bottom: BorderSide(color: _fieldBorder)),
       ),
       child: Row(
         children: [
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [_heroTop, _heroBottom],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              initial,
+              style: AppTheme.text(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   _investor.fullName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTheme.text(
-                    fontSize: 22,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  '${_investor.username} · ${_investor.phone.isEmpty ? '—' : _investor.phone}'
-                  '${_investor.masterCard.isEmpty ? '' : ' · ماستر ${_investor.masterCard}'}',
+                  _investor.phone.isEmpty ? _investor.username : _investor.phone,
                   style: AppTheme.text(
-                    fontSize: 13,
-                    color: AppTheme.basic.withValues(alpha: 0.65),
+                    fontSize: 12,
+                    color: AppTheme.basic.withValues(alpha: 0.55),
                   ),
                 ),
               ],
             ),
           ),
           if (widget.isAdmin) ...[
-            OutlinedButton(
+            IconButton(
+              tooltip: 'تعديل',
               onPressed: _editInvestor,
-              child: const Text('تعديل'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.edit_outlined, size: 20),
             ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
+            IconButton(
+              tooltip: 'عقد استثمار',
               onPressed: _openAddInvestment,
-              style: FilledButton.styleFrom(backgroundColor: _actionBlue),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('عقد استثمار'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.add_circle_outline, size: 22),
+              color: _actionBlue,
             ),
-            const SizedBox(width: 8),
           ],
           IconButton(
             onPressed: () => Navigator.pop(context, _changed),
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.close),
           ),
         ],
@@ -284,416 +300,222 @@ class _InvestorDetailDialogState extends State<InvestorDetailDialog> {
     );
   }
 
-  Color _statusColor(InvestmentStatus status) {
-    return switch (status) {
-      InvestmentStatus.active => AppTheme.paid,
-      InvestmentStatus.completed => AppTheme.completed,
-      InvestmentStatus.cancelled => AppTheme.late,
-    };
-  }
-
-  Widget _contractsPane() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _summaryGrid(),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Text(
-                'العقود الاستثمارية',
-                style: AppTheme.text(fontSize: 16, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _actionBlue.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  '${_investments.items.length}',
-                  style: AppTheme.text(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: _actionBlue,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3FAFD),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _fieldBorder),
-            ),
-            child: Directionality(
-              textDirection: TextDirection.rtl,
-              child: Row(
-                children: [
-                  _miniHead(5, '#'),
-                  _miniHead(16, 'المبلغ'),
-                  _miniHead(10, 'فائدة'),
-                  _miniHead(16, 'بعد الفائدة'),
-                  _miniHead(14, 'القسط'),
-                  _miniHead(12, 'متبقي'),
-                  _miniHead(12, 'الحالة'),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: _investments.items.isEmpty
-                ? Center(
-                    child: Text(
-                      'لا توجد عقود بعد',
-                      style: AppTheme.text(
-                        color: AppTheme.basic.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: _investments.items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final item = _investments.items[i];
-                      final selected = _selected?.id == item.id;
-                      final statusColor = _statusColor(item.status);
-                      return InkWell(
-                        onTap: () => _openInvestment(item),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? const Color(0xFFE8F5FC)
-                                : const Color(0xFFF8FCFE),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: selected ? _actionBlue : _fieldBorder,
-                              width: selected ? 1.4 : 1,
-                            ),
-                          ),
-                          child: Directionality(
-                            textDirection: TextDirection.rtl,
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    _miniCell(5, Text('${i + 1}', textAlign: TextAlign.center)),
-                                    _miniCell(
-                                      16,
-                                      Text(
-                                        money(item.principal),
-                                        textAlign: TextAlign.center,
-                                        style: AppTheme.text(
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                    ),
-                                    _miniCell(
-                                      10,
-                                      Text(
-                                        '${item.interestPercent}%',
-                                        textAlign: TextAlign.center,
-                                        style: AppTheme.text(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    _miniCell(
-                                      16,
-                                      Text(
-                                        money(item.totalWithInterest),
-                                        textAlign: TextAlign.center,
-                                        style: AppTheme.text(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    _miniCell(
-                                      14,
-                                      Text(
-                                        money(item.monthlyPayout),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    _miniCell(
-                                      12,
-                                      Text(
-                                        '${item.remainingMonths}/${item.monthsCount}',
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    _miniCell(
-                                      12,
-                                      Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: statusColor.withValues(
-                                              alpha: 0.12,
-                                            ),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                          ),
-                                          child: Text(
-                                            investmentStatusLabel(item.status),
-                                            style: AppTheme.text(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: statusColor,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    'بداية ${formatDate(item.startDate)} · أول قسط ${formatDate(item.firstDueDate)}',
-                                    style: AppTheme.text(
-                                      fontSize: 11,
-                                      color: AppTheme.basic.withValues(
-                                        alpha: 0.55,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _miniHead(int flex, String label) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: AppTheme.text(fontSize: 11, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-
-  Widget _miniCell(int flex, Widget child) {
-    return Expanded(flex: flex, child: child);
-  }
-
-  Widget _summaryGrid() {
-    final cards = [
-      ('أصل الرصيد', money(_investor.principalTotal)),
-      ('بعد الفائدة', money(_investor.totalWithInterest)),
-      ('المدفوع', money(_investor.paidAmount)),
-      ('المتبقي', money(_investor.remainingAmount)),
-      ('قسط الشهر', money(_investor.dueThisMonthAmount)),
-      ('عقود', '${_investor.investmentsCount}'),
-    ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final c in cards)
-          SizedBox(
-            width: 140,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3FAFD),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _fieldBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    c.$1,
-                    style: AppTheme.text(
-                      fontSize: 11,
-                      color: AppTheme.basic.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    c.$2,
-                    style: AppTheme.text(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _detailPane() {
+  Widget _body() {
     final inv = _selected;
     if (inv == null) {
       return Center(
-        child: Text(
-          'اختر عقداً لعرض جدول الأقساط',
-          style: AppTheme.text(color: AppTheme.basic.withValues(alpha: 0.55)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'لا يوجد عقد لعرضه',
+                style: AppTheme.text(
+                  color: AppTheme.basic.withValues(alpha: 0.55),
+                ),
+              ),
+              if (widget.isAdmin) ...[
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: _openAddInvestment,
+                  style: FilledButton.styleFrom(backgroundColor: _actionBlue),
+                  child: const Text('إضافة عقد استثمار'),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
 
     final unpaid = inv.payouts.where((p) => !p.paid).toList();
+    final lastDue = lastDueDate(
+      firstDue: inv.firstDueDate,
+      monthsCount: inv.monthsCount,
+    );
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'تفاصيل العقد',
-                  style: AppTheme.text(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+      children: [
+        if (widget.isAdmin && _investments.items.length > 1) ...[
+          DropdownButtonFormField<String>(
+            value: inv.id,
+            decoration: InputDecoration(
+              labelText: 'العقد',
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _fieldBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: _fieldBorder),
+              ),
+            ),
+            items: [
+              for (final item in _investments.items)
+                DropdownMenuItem(
+                  value: item.id,
+                  child: Text(
+                    '${money(item.principal)} · ${item.monthsCount} شهر',
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-              if (widget.isAdmin && unpaid.isNotEmpty)
-                FilledButton(
-                  onPressed: _busy ? null : _confirmAll,
-                  style: FilledButton.styleFrom(backgroundColor: _actionBlue),
-                  child: const Text('تأكيد صرف المستحق'),
-                ),
             ],
+            onChanged: _busy
+                ? null
+                : (id) {
+                    if (id != null) _selectInvestment(id);
+                  },
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'معلومات وإحصائيات العقد',
+                style: AppTheme.text(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (widget.isAdmin && unpaid.isNotEmpty)
+              TextButton(
+                onPressed: _busy ? null : _confirmAll,
+                child: const Text('تأكيد المستحق'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _metricsGrid(inv),
+        const SizedBox(height: 12),
+        _datesRow(
+          first: formatDayMonth(inv.firstDueDate),
+          last: lastDue == null ? '—' : formatDayMonth(lastDue),
+        ),
+      ],
+    );
+  }
+
+  Widget _metricsGrid(Investment inv) {
+    final items = [
+      ('القسط الشهري', money(inv.monthlyPayout)),
+      ('عدد الأشهر', '${inv.monthsCount}'),
+      ('أشهر متبقية', '${inv.remainingMonths}'),
+      ('المستلم', money(inv.paidAmount)),
+      ('المتبقي', money(inv.remainingAmount)),
+    ];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        childAspectRatio: 1.45,
+      ),
+      itemBuilder: (context, i) {
+        final item = items[i];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _fieldBorder),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _chip('الأصل', money(inv.principal)),
-              _chip('الفائدة', '${inv.interestPercent}% (${money(inv.interestAmount)})'),
-              _chip('بعد الفائدة', money(inv.totalWithInterest)),
-              _chip('القسط الشهري', money(inv.monthlyPayout)),
-              _chip('المتبقي', money(inv.remainingAmount)),
-              _chip('أشهر متبقية', '${inv.remainingMonths}'),
+              Text(
+                item.$1,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.text(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.basic.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.$2,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.text(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            'جدول الأقساط',
-            style: AppTheme.text(fontSize: 14, fontWeight: FontWeight.w700),
+        );
+      },
+    );
+  }
+
+  Widget _datesRow({required String first, required String last}) {
+    return Row(
+      children: [
+        Expanded(child: _dateTile('أول دفعة', first, Icons.play_arrow_rounded)),
+        const SizedBox(width: 8),
+        Expanded(child: _dateTile('آخر دفعة', last, Icons.flag_rounded)),
+      ],
+    );
+  }
+
+  Widget _dateTile(String label, String value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _fieldBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5FC),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: _actionBlue),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 10),
           Expanded(
-            child: inv.payouts.isEmpty
-                ? Center(
-                    child: Text(
-                      'لا أقساط مستحقة بعد — أول قسط ${formatDate(inv.firstDueDate)}',
-                      textAlign: TextAlign.center,
-                      style: AppTheme.text(
-                        color: AppTheme.basic.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: inv.payouts.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, i) {
-                      final p = inv.payouts[i];
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FCFE),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: _fieldBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 70,
-                              child: Text(
-                                'قسط ${p.installmentNo}',
-                                style: AppTheme.text(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Text(formatDate(p.dueDate))),
-                            Expanded(
-                              child: Text(
-                                money(p.amount),
-                                style: AppTheme.text(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              p.paid ? 'مصروف' : 'مستحق',
-                              style: AppTheme.text(
-                                fontSize: 12,
-                                color: p.paid
-                                    ? const Color(0xFF2E7D32)
-                                    : const Color(0xFFC62828),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (widget.isAdmin && !p.paid) ...[
-                              const SizedBox(width: 8),
-                              TextButton(
-                                onPressed: _busy ? null : () => _confirmOne(p),
-                                child: const Text('تأكيد'),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTheme.text(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.basic.withValues(alpha: 0.5),
                   ),
+                ),
+                Text(
+                  value,
+                  style: AppTheme.text(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _chip(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3FAFD),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _fieldBorder),
-      ),
-      child: Text(
-        '$label: $value',
-        style: AppTheme.text(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
 }

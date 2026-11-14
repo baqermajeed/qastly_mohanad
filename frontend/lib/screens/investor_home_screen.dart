@@ -28,6 +28,12 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
   bool _loading = true;
   String? _error;
   final _searchController = TextEditingController();
+  late DateTime _dueMonth;
+
+  DateTime get _currentMonth {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month);
+  }
 
   static const _fieldBorder = Color(0xFFD5E8F2);
   static const _headers = <(int, String)>[
@@ -39,15 +45,52 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
     (10, 'المستلم'),
     (10, 'المتبقي'),
     (7, 'الأشهر'),
-    (9, 'البداية'),
-    (9, 'أول قسط'),
-    (8, 'الحالة'),
+    (8, 'البداية'),
+    (8, 'أول قسط'),
+    (8, 'آخر قسط'),
+    (7, 'الحالة'),
   ];
 
   @override
   void initState() {
     super.initState();
+    _dueMonth = _currentMonth;
     _load();
+  }
+
+  bool get _isCurrentDueMonth =>
+      _dueMonth.year == _currentMonth.year &&
+      _dueMonth.month == _currentMonth.month;
+
+  double get _dueForSelectedMonth {
+    var total = 0.0;
+    for (final item in _investments.items) {
+      if (item.status != InvestmentStatus.active) continue;
+      total += installmentDueInMonth(
+        firstDue: item.firstDueDate,
+        monthsCount: item.monthsCount,
+        monthlyPayment: item.monthlyPayout,
+        financedAmount: item.totalWithInterest,
+        month: _dueMonth,
+      );
+    }
+    return double.parse(total.toStringAsFixed(2));
+  }
+
+  Future<void> _pickDueMonth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 8, 12, 31),
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'اختر الشهر',
+      cancelText: 'إلغاء',
+      confirmText: 'تم',
+      fieldLabelText: 'الشهر',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _dueMonth = DateTime(picked.year, picked.month));
   }
 
   @override
@@ -267,9 +310,21 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
-                title: 'قسط هذا الشهر',
-                value: money(inv.dueThisMonthAmount),
+                title: 'مستحقاتك هذا الشهر',
+                subtitle: _isCurrentDueMonth
+                    ? null
+                    : '${_dueMonth.month.toString().padLeft(2, '0')}/${_dueMonth.year}',
+                value: money(
+                  _isCurrentDueMonth
+                      ? (_investments.items.isEmpty
+                          ? inv.dueThisMonthAmount
+                          : _dueForSelectedMonth)
+                      : _dueForSelectedMonth,
+                ),
                 background: AppTheme.cardMint,
+                actionIcon: Icons.calendar_month_rounded,
+                actionTooltip: 'اختيار شهر',
+                onIconTap: _pickDueMonth,
               ),
             ),
           ],
@@ -370,6 +425,10 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
 
   Widget _contractRow({required int index, required Investment item}) {
     final statusColor = _statusColor(item.status);
+    final lastDue = lastDueDate(
+      firstDue: item.firstDueDate,
+      monthsCount: item.monthsCount,
+    );
     return Material(
       color: const Color(0xFFF8FCFE),
       borderRadius: BorderRadius.circular(14),
@@ -450,11 +509,11 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                   ),
                 ),
                 _cell(
-                  9,
+                  8,
                   Text(formatDate(item.startDate), textAlign: TextAlign.center),
                 ),
                 _cell(
-                  9,
+                  8,
                   Text(
                     formatDate(item.firstDueDate),
                     textAlign: TextAlign.center,
@@ -462,6 +521,13 @@ class _InvestorHomeScreenState extends State<InvestorHomeScreen> {
                 ),
                 _cell(
                   8,
+                  Text(
+                    lastDue == null ? '—' : formatDate(lastDue),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                _cell(
+                  7,
                   Center(
                     child: Container(
                       padding: const EdgeInsets.symmetric(

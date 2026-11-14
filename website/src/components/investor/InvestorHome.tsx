@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getInvestments,
   getInvestor,
 } from "@/lib/api";
-import { formatDateString, money } from "@/lib/format";
+import {
+  computeLastDueDate,
+  formatDateString,
+  installmentDueInMonth,
+  money,
+} from "@/lib/format";
 import type { AppUser, Investment, Investor } from "@/lib/types";
 import { InvestorDetailSheet } from "@/components/admin/InvestorDetailSheet";
 import { MobileHeader } from "@/components/home/MobileHeader";
@@ -17,6 +22,30 @@ type Props = {
   user: AppUser | null;
   onLogout: () => void;
 };
+
+function currentMonthDate() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+}
+
+function monthInputValue(d: Date) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function dueForMonth(investments: Investment[], month: Date) {
+  let total = 0;
+  for (const item of investments) {
+    if (item.status !== "active") continue;
+    total += installmentDueInMonth({
+      firstDue: item.first_due_date,
+      monthsCount: item.months_count,
+      monthlyPayment: item.monthly_payout,
+      financedAmount: item.total_with_interest,
+      month,
+    });
+  }
+  return Number(total.toFixed(2));
+}
 
 function statusLabel(status: string) {
   if (status === "completed") return "مكتمل";
@@ -40,6 +69,8 @@ export function InvestorHome({ user, onLogout }: Props) {
   const [selectedInvestmentId, setSelectedInvestmentId] = useState<
     string | null
   >(null);
+  const [dueMonth, setDueMonth] = useState(currentMonthDate);
+  const monthPickerRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (!user?.id) return;
@@ -62,6 +93,16 @@ export function InvestorHome({ user, onLogout }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const nowMonth = currentMonthDate();
+  const isCurrentDueMonth =
+    dueMonth.getUTCFullYear() === nowMonth.getUTCFullYear() &&
+    dueMonth.getUTCMonth() === nowMonth.getUTCMonth();
+  const dueAmount = investments.length
+    ? dueForMonth(investments, dueMonth)
+    : isCurrentDueMonth
+      ? (investor?.due_this_month_amount ?? 0)
+      : 0;
 
   const statsForMenu = investor
     ? {
@@ -100,7 +141,36 @@ export function InvestorHome({ user, onLogout }: Props) {
         title="مرحبا بك في نظام قسطلي💸"
         subtitle="عقودك الاستثمارية مستقلة، وأقساطك تُحتسب حسب كل عقد"
       />
-      <StatsGrid stats={statsForMenu} variant="investor" />
+      <input
+        ref={monthPickerRef}
+        type="month"
+        className="sr-only"
+        value={monthInputValue(dueMonth)}
+        onChange={(e) => {
+          const [y, m] = e.target.value.split("-").map(Number);
+          if (!y || !m) return;
+          setDueMonth(new Date(Date.UTC(y, m - 1, 1)));
+        }}
+      />
+      <StatsGrid
+        stats={statsForMenu}
+        variant="investor"
+        investorDueAmount={dueAmount}
+        investorDueSubtitle={
+          isCurrentDueMonth
+            ? null
+            : `${String(dueMonth.getUTCMonth() + 1).padStart(2, "0")}/${dueMonth.getUTCFullYear()}`
+        }
+        onPickInvestorDueMonth={() => {
+          const el = monthPickerRef.current;
+          if (!el) return;
+          if (typeof el.showPicker === "function") {
+            el.showPicker();
+          } else {
+            el.click();
+          }
+        }}
+      />
 
       {loading ? (
         <div className="mx-4 mt-10 text-center text-sm font-bold text-[var(--soft)]">
@@ -214,8 +284,14 @@ export function InvestorHome({ user, onLogout }: Props) {
 
                       <div className="mt-2 text-[11px] font-semibold text-[var(--basic)]/50">
                         من {formatDateString(item.start_date)} · أول قسط{" "}
-                        {formatDateString(item.first_due_date)} ·{" "}
-                        {item.remaining_months}/{item.months_count} شهر
+                        {formatDateString(item.first_due_date)} · آخر قسط{" "}
+                        {formatDateString(
+                          computeLastDueDate(
+                            item.first_due_date,
+                            item.months_count,
+                          ),
+                        )}{" "}
+                        · {item.remaining_months}/{item.months_count} شهر
                       </div>
                     </article>
                   );

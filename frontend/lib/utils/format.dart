@@ -27,6 +27,42 @@ DateTime? lastDueDate({
   return addMonths(firstDue, monthsCount - 1);
 }
 
+double installmentAmount({
+  required double financedAmount,
+  required int monthsCount,
+  required double monthlyPayment,
+  required int installmentNo,
+}) {
+  if (installmentNo < monthsCount) {
+    return double.parse(monthlyPayment.toStringAsFixed(2));
+  }
+  return double.parse(
+    (financedAmount - monthlyPayment * (monthsCount - 1)).toStringAsFixed(2),
+  );
+}
+
+/// مبلغ القسط المستحق في شهر معيّن حسب جدول العقد.
+double installmentDueInMonth({
+  required DateTime firstDue,
+  required int monthsCount,
+  required double monthlyPayment,
+  required double financedAmount,
+  required DateTime month,
+}) {
+  if (monthsCount <= 0) return 0;
+  final target = DateTime(month.year, month.month, 1);
+  final start = DateTime(firstDue.year, firstDue.month, 1);
+  final monthsDiff =
+      (target.year - start.year) * 12 + (target.month - start.month);
+  if (monthsDiff < 0 || monthsDiff >= monthsCount) return 0;
+  return installmentAmount(
+    financedAmount: financedAmount,
+    monthsCount: monthsCount,
+    monthlyPayment: monthlyPayment,
+    installmentNo: monthsDiff + 1,
+  );
+}
+
 String formatDayMonth(DateTime value) =>
     DateFormat('dd/MM/yyyy').format(value);
 

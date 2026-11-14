@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import {
   confirmInvestmentPayouts,
-  confirmPayout,
   getInvestment,
   getInvestments,
   getInvestor,
 } from "@/lib/api";
-import { formatDateString, money } from "@/lib/format";
+import {
+  computeLastDueDate,
+  formatDateString,
+  money,
+} from "@/lib/format";
 import type { Investment, Investor } from "@/lib/types";
 import { AddInvestmentSheet } from "@/components/admin/AddInvestmentSheet";
 import { AddInvestorSheet } from "@/components/admin/AddInvestorSheet";
@@ -21,18 +24,6 @@ type Props = {
   isAdmin?: boolean;
   initialInvestmentId?: string | null;
 };
-
-function statusLabel(status: string) {
-  if (status === "completed") return "مكتمل";
-  if (status === "cancelled") return "ملغى";
-  return "نشط";
-}
-
-function statusColor(status: string) {
-  if (status === "completed") return "#0E8A61";
-  if (status === "cancelled") return "#C0392B";
-  return "#2E86C1";
-}
 
 export function InvestorDetailSheet({
   investorId,
@@ -61,13 +52,20 @@ export function InvestorDetailSheet({
       ]);
       setInvestor(inv);
       setInvestments(list.items);
-      const selectedId = keepSelectedId || initialInvestmentId || selected?.id;
+      const selectedId =
+        keepSelectedId ||
+        initialInvestmentId ||
+        selected?.id ||
+        list.items[0]?.id ||
+        null;
       if (selectedId) {
         try {
           setSelected(await getInvestment(selectedId));
         } catch {
-          setSelected(null);
+          setSelected(list.items.find((i) => i.id === selectedId) ?? null);
         }
+      } else {
+        setSelected(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تحميل البيانات");
@@ -110,21 +108,12 @@ export function InvestorDetailSheet({
     }
   }
 
-  async function onConfirmOne(payoutId: string) {
-    setBusy(true);
-    try {
-      const updated = await confirmPayout(payoutId);
-      setSelected(updated);
-      if (investorId) await load(investorId, updated.id);
-      onUpdated?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "تعذر تأكيد القسط");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const unpaid = selected?.payouts?.filter((p) => !p.paid) ?? [];
+  const initial =
+    (investor?.full_name?.trim()?.[0] || "م").toString();
+  const lastDue = selected
+    ? computeLastDueDate(selected.first_due_date, selected.months_count)
+    : null;
 
   return (
     <>
@@ -135,18 +124,21 @@ export function InvestorDetailSheet({
         onClick={onClose}
       />
       <div
-        className="center-dialog max-h-[92dvh] w-[min(calc(100%-16px),560px)] overflow-y-auto"
+        className="center-dialog max-h-[92dvh] w-[min(calc(100%-24px),440px)] overflow-y-auto bg-[#F7FBFD]"
         role="dialog"
         aria-modal="true"
       >
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="truncate text-base font-extrabold text-[var(--basic)]">
+        <div className="-mx-1 mb-3 flex items-center gap-3 border-b border-[#D5E8F2] bg-white px-1 pb-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] bg-gradient-to-bl from-[#064E6A] to-[#069BAF] text-base font-extrabold text-white">
+            {initial}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-[15px] font-extrabold text-[var(--basic)]">
               {investor?.full_name || "تفاصيل المستثمر"}
             </h3>
-            <div className="mt-1 text-[12px] font-semibold text-[var(--basic)]/55">
+            <div className="mt-0.5 truncate text-[12px] font-semibold text-[var(--basic)]/55">
               {investor
-                ? `@${investor.username} · ${investor.phone || "—"}`
+                ? `${investor.phone || `@${investor.username}`}`
                 : "—"}
               {investor?.master_card
                 ? ` · ماستر ${investor.master_card}`
@@ -189,150 +181,101 @@ export function InvestorDetailSheet({
           <div className="rounded-2xl bg-[#FDECEC] p-4 text-center text-sm font-bold text-[var(--late)]">
             {error}
           </div>
+        ) : !selected ? (
+          <div className="rounded-2xl bg-white p-6 text-center text-sm font-bold text-[var(--basic)]/50">
+            لا يوجد عقد لعرضه
+          </div>
         ) : (
           <>
-            <div className="mb-3 grid grid-cols-2 gap-2">
+            {isAdmin && investments.length > 1 ? (
+              <div className="mb-3">
+                <label className="mb-1 block text-xs font-bold">العقد</label>
+                <select
+                  className="field"
+                  value={selected.id}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const item = investments.find((i) => i.id === e.target.value);
+                    if (item) void openInvestment(item);
+                  }}
+                >
+                  {investments.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {money(item.principal)} · {item.months_count} شهر
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h4 className="text-sm font-extrabold text-[var(--basic)]">
+                معلومات وإحصائيات العقد
+              </h4>
+              {isAdmin && unpaid.length > 0 ? (
+                <button
+                  type="button"
+                  className="rounded-xl bg-[var(--soft)] px-3 py-1.5 text-[11px] font-extrabold text-white disabled:opacity-60"
+                  disabled={busy}
+                  onClick={() => void onConfirmAll()}
+                >
+                  تأكيد المستحق
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mb-3 grid grid-cols-3 gap-2">
               {(
                 [
-                  ["أصل الرصيد", money(investor?.principal_total ?? 0)],
-                  ["بعد الفائدة", money(investor?.total_with_interest ?? 0)],
-                  ["المستلم", money(investor?.paid_amount ?? 0)],
-                  ["المتبقي", money(investor?.remaining_amount ?? 0)],
+                  ["القسط الشهري", money(selected.monthly_payout)],
+                  ["عدد الأشهر", `${selected.months_count}`],
+                  ["أشهر متبقية", `${selected.remaining_months}`],
+                  ["المستلم", money(selected.paid_amount)],
+                  ["المتبقي", money(selected.remaining_amount)],
                 ] as const
               ).map(([label, value]) => (
                 <div
                   key={label}
-                  className="rounded-2xl bg-[#F3FAFD] px-3 py-2.5"
+                  className="rounded-[14px] border border-[#D5E8F2] bg-white px-2 py-2.5 text-center"
                 >
-                  <div className="text-[11px] font-bold text-[var(--basic)]/55">
+                  <div className="truncate text-[10px] font-bold text-[var(--basic)]/50">
                     {label}
                   </div>
-                  <div className="mt-1 text-[14px] font-extrabold text-[var(--basic)]">
+                  <div className="mt-1 truncate text-[13px] font-extrabold text-[var(--basic)]">
                     {value}
                   </div>
                 </div>
               ))}
             </div>
 
-            <h4 className="mb-2 text-sm font-extrabold text-[var(--basic)]">
-              العقود ({investments.length})
-            </h4>
-            <div className="mb-3 space-y-2">
-              {investments.length === 0 ? (
-                <div className="rounded-2xl bg-[#F7FBFD] p-5 text-center text-sm font-bold text-[var(--basic)]/50">
-                  لا توجد عقود بعد
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center gap-2.5 rounded-[14px] border border-[#D5E8F2] bg-white px-3 py-3">
+                <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#E8F5FC] text-[var(--soft)]">
+                  ▶
                 </div>
-              ) : (
-                investments.map((item) => {
-                  const selectedRow = selected?.id === item.id;
-                  const color = statusColor(item.status);
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`w-full rounded-2xl border px-3 py-3 text-right transition ${
-                        selectedRow
-                          ? "border-[var(--soft)] bg-[#E8F5FC]"
-                          : "border-[#D5E8F2] bg-[#F8FCFE]"
-                      }`}
-                      onClick={() => void openInvestment(item)}
-                      disabled={busy}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="text-[14px] font-extrabold text-[var(--basic)]">
-                          {money(item.principal)}
-                        </span>
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[11px] font-extrabold"
-                          style={{
-                            color,
-                            background: `${color}1F`,
-                          }}
-                        >
-                          {statusLabel(item.status)}
-                        </span>
-                      </div>
-                      <div className="text-[12px] font-bold text-[var(--basic)]/60">
-                        فائدة {item.interest_percent}% · بعد الفائدة{" "}
-                        {money(item.total_with_interest)}
-                      </div>
-                      <div className="mt-1 text-[11px] font-semibold text-[var(--basic)]/50">
-                        قسط {money(item.monthly_payout)} · مستلم{" "}
-                        {money(item.paid_amount)} · متبقي{" "}
-                        {money(item.remaining_amount)}
-                      </div>
-                      <div className="mt-1 text-[11px] font-semibold text-[var(--basic)]/45">
-                        من {formatDateString(item.start_date)} · أول قسط{" "}
-                        {formatDateString(item.first_due_date)}
-                      </div>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            {selected ? (
-              <div className="rounded-2xl border border-[#D5E8F2] bg-white p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h4 className="text-sm font-extrabold text-[var(--basic)]">
-                    جدول أقساط العقد
-                  </h4>
-                  {isAdmin && unpaid.length > 0 ? (
-                    <button
-                      type="button"
-                      className="rounded-xl bg-[var(--soft)] px-3 py-1.5 text-[11px] font-extrabold text-white disabled:opacity-60"
-                      disabled={busy}
-                      onClick={() => void onConfirmAll()}
-                    >
-                      تأكيد صرف المستحق
-                    </button>
-                  ) : null}
-                </div>
-
-                {(selected.payouts?.length ?? 0) === 0 ? (
-                  <div className="py-4 text-center text-sm font-bold text-[var(--basic)]/50">
-                    لا أقساط مستحقة بعد — أول قسط{" "}
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-[var(--basic)]/50">
+                    أول دفعة
+                  </div>
+                  <div className="text-[13px] font-extrabold">
                     {formatDateString(selected.first_due_date)}
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    {selected.payouts!.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center gap-2 rounded-xl bg-[#F8FCFE] px-2.5 py-2"
-                      >
-                        <div className="w-14 text-[12px] font-extrabold">
-                          قسط {p.installment_no}
-                        </div>
-                        <div className="flex-1 text-[12px] font-bold text-[var(--basic)]/60">
-                          {formatDateString(p.due_date)}
-                        </div>
-                        <div className="text-[12px] font-extrabold">
-                          {money(p.amount)}
-                        </div>
-                        <div
-                          className={`text-[11px] font-extrabold ${
-                            p.paid ? "text-[#0E8A61]" : "text-[#C62828]"
-                          }`}
-                        >
-                          {p.paid ? "مصروف" : "مستحق"}
-                        </div>
-                        {isAdmin && !p.paid ? (
-                          <button
-                            type="button"
-                            className="rounded-lg bg-[#E8F5FC] px-2 py-1 text-[11px] font-extrabold text-[var(--soft)] disabled:opacity-60"
-                            disabled={busy}
-                            onClick={() => void onConfirmOne(p.id)}
-                          >
-                            تأكيد
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                </div>
               </div>
-            ) : null}
+              <div className="flex items-center gap-2.5 rounded-[14px] border border-[#D5E8F2] bg-white px-3 py-3">
+                <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#E8F5FC] text-[var(--soft)]">
+                  ⚑
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-[var(--basic)]/50">
+                    آخر دفعة
+                  </div>
+                  <div className="text-[13px] font-extrabold">
+                    {formatDateString(lastDue)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>

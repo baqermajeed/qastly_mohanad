@@ -53,6 +53,97 @@ export function computeLastDueDate(
   return `${year}-${String(month + 1).padStart(2, "0")}-01`;
 }
 
+export function installmentAmount(params: {
+  financedAmount: number;
+  monthsCount: number;
+  monthlyPayment: number;
+  installmentNo: number;
+}): number {
+  const { financedAmount, monthsCount, monthlyPayment, installmentNo } =
+    params;
+  if (installmentNo < monthsCount) {
+    return Number(monthlyPayment.toFixed(2));
+  }
+  return Number(
+    (financedAmount - monthlyPayment * (monthsCount - 1)).toFixed(2),
+  );
+}
+
+/** مبلغ القسط المستحق في شهر معيّن حسب جدول العقد. */
+export function installmentDueInMonth(params: {
+  firstDue: string;
+  monthsCount: number;
+  monthlyPayment: number;
+  financedAmount: number;
+  month: Date;
+}): number {
+  const {
+    firstDue,
+    monthsCount,
+    monthlyPayment,
+    financedAmount,
+    month,
+  } = params;
+  if (monthsCount <= 0) return 0;
+  const start = new Date(firstDue);
+  if (Number.isNaN(start.getTime())) return 0;
+  const monthsDiff =
+    (month.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (month.getUTCMonth() - start.getUTCMonth());
+  if (monthsDiff < 0 || monthsDiff >= monthsCount) return 0;
+  return installmentAmount({
+    financedAmount,
+    monthsCount,
+    monthlyPayment,
+    installmentNo: monthsDiff + 1,
+  });
+}
+
+export function addMonthsIso(firstDue: string, monthsOffset: number): string {
+  const start = new Date(firstDue);
+  const index = start.getUTCMonth() + monthsOffset;
+  const year = start.getUTCFullYear() + Math.floor(index / 12);
+  const month = index % 12;
+  return `${year}-${String(month + 1).padStart(2, "0")}-01`;
+}
+
+/** جدول كامل لكل أشهر العقد (مستلم / غير مستلم). */
+export function buildInvestmentSchedule(inv: {
+  months_count: number;
+  monthly_payout: number;
+  total_with_interest: number;
+  first_due_date: string;
+  payouts?: Array<{
+    id: string;
+    installment_no: number;
+    due_date: string;
+    amount: number;
+    paid: boolean;
+  }>;
+}) {
+  const byNo = new Map(
+    (inv.payouts ?? []).map((p) => [p.installment_no, p] as const),
+  );
+  const months = inv.months_count;
+  const monthly = inv.monthly_payout;
+  const total = inv.total_with_interest;
+  return Array.from({ length: months }, (_, i) => {
+    const no = i + 1;
+    const existing = byNo.get(no);
+    const amount =
+      no < months
+        ? monthly
+        : Number((total - monthly * (months - 1)).toFixed(2));
+    return {
+      installment_no: no,
+      due_date: existing?.due_date ?? addMonthsIso(inv.first_due_date, i),
+      amount: existing?.amount ?? amount,
+      paid: existing?.paid ?? false,
+      payout_id: existing?.id ?? null,
+    };
+  });
+}
+
 export function paymentMethodLabel(method?: string): string {
   switch (method) {
     case "card":
