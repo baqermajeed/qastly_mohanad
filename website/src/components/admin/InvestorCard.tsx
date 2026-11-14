@@ -8,9 +8,10 @@ type Props = {
   investor: Investor;
   index: number;
   onOpen?: (investor: Investor) => void;
+  onEdit?: (investor: Investor) => void;
 };
 
-export function InvestorCard({ investor, index, onOpen }: Props) {
+export function InvestorCard({ investor, index, onOpen, onEdit }: Props) {
   const whatsapp = investor.phone
     ? `https://wa.me/964${investor.phone.replace(/^0/, "")}`
     : null;
@@ -44,7 +45,7 @@ export function InvestorCard({ investor, index, onOpen }: Props) {
             {investor.full_name}
           </h3>
           <div className="mt-0.5 text-[12px] font-bold text-[var(--basic)]/50">
-            @{investor.username}
+            {investor.username}
           </div>
           <div className="mt-1 text-[12px] font-bold text-[#1E7AA8]">
             {investor.phone || "—"}
@@ -64,6 +65,18 @@ export function InvestorCard({ investor, index, onOpen }: Props) {
           >
             {investor.active ? "نشط" : "موقوف"}
           </span>
+          {onEdit ? (
+            <button
+              type="button"
+              className="rounded-lg bg-[#EAF6FB] px-2 py-1 text-[11px] font-extrabold text-[var(--soft)]"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(investor);
+              }}
+            >
+              تعديل
+            </button>
+          ) : null}
           {whatsapp ? (
             <a
               className="whatsapp-pill"
@@ -78,7 +91,7 @@ export function InvestorCard({ investor, index, onOpen }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 text-center sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F7FBFD] px-2 py-3 text-center sm:grid-cols-5">
         <div>
           <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
             العقود
@@ -97,10 +110,18 @@ export function InvestorCard({ investor, index, onOpen }: Props) {
         </div>
         <div>
           <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
-            المستلم
+            بعد الفائدة
           </div>
-          <div className="text-[13px] font-extrabold text-[#0E8A61]">
-            {money(investor.paid_amount)}
+          <div className="text-[13px] font-extrabold text-[var(--basic)]">
+            {money(investor.total_with_interest)}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1 text-[11px] font-bold text-[var(--basic)]/55">
+            قسط الشهر
+          </div>
+          <div className="text-[13px] font-extrabold text-[var(--basic)]">
+            {money(investor.due_this_month_amount)}
           </div>
         </div>
         <div>

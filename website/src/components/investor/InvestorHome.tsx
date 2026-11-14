@@ -7,7 +7,7 @@ import {
 } from "@/lib/api";
 import {
   computeLastDueDate,
-  formatDateString,
+  formatIsoDate,
   installmentDueInMonth,
   money,
 } from "@/lib/format";
@@ -283,9 +283,9 @@ export function InvestorHome({ user, onLogout }: Props) {
                       </div>
 
                       <div className="mt-2 text-[11px] font-semibold text-[var(--basic)]/50">
-                        من {formatDateString(item.start_date)} · أول قسط{" "}
-                        {formatDateString(item.first_due_date)} · آخر قسط{" "}
-                        {formatDateString(
+                        من {formatIsoDate(item.start_date)} · أول قسط{" "}
+                        {formatIsoDate(item.first_due_date)} · آخر قسط{" "}
+                        {formatIsoDate(
                           computeLastDueDate(
                             item.first_due_date,
                             item.months_count,
@@ -307,6 +307,18 @@ export function InvestorHome({ user, onLogout }: Props) {
         user={user}
         stats={statsForMenu}
         variant="investor"
+        investorDueAmount={dueAmount}
+        investorDueSubtitle={
+          isCurrentDueMonth
+            ? null
+            : `${String(dueMonth.getUTCMonth() + 1).padStart(2, "0")}/${dueMonth.getUTCFullYear()}`
+        }
+        onPickInvestorDueMonth={() => {
+          const el = monthPickerRef.current;
+          if (!el) return;
+          if (typeof el.showPicker === "function") el.showPicker();
+          else el.click();
+        }}
         onClose={() => setMenuOpen(false)}
         onLogout={onLogout}
       />

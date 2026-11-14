@@ -11,6 +11,11 @@ type Props = {
   onClose: () => void;
   onLogout: () => void;
   variant?: "merchant" | "admin" | "investor";
+  adminMonthSubtitle?: string | null;
+  onPickAdminMonth?: () => void;
+  investorDueAmount?: number | null;
+  investorDueSubtitle?: string | null;
+  onPickInvestorDueMonth?: () => void;
 };
 
 export function SideMenu({
@@ -20,6 +25,11 @@ export function SideMenu({
   onClose,
   onLogout,
   variant = "merchant",
+  adminMonthSubtitle = null,
+  onPickAdminMonth,
+  investorDueAmount = null,
+  investorDueSubtitle = null,
+  onPickInvestorDueMonth,
 }: Props) {
   return (
     <>
@@ -82,7 +92,16 @@ export function SideMenu({
 
         <h3 className="mb-2 text-sm font-extrabold text-[var(--basic)]">الإحصائيات</h3>
         <div className="side-stats mb-4 max-h-[58dvh] overflow-y-auto pe-1">
-          <StatsGrid stats={stats} compact variant={variant} />
+          <StatsGrid
+            stats={stats}
+            compact
+            variant={variant}
+            adminMonthSubtitle={adminMonthSubtitle}
+            onPickAdminMonth={onPickAdminMonth}
+            investorDueAmount={investorDueAmount}
+            investorDueSubtitle={investorDueSubtitle}
+            onPickInvestorDueMonth={onPickInvestorDueMonth}
+          />
         </div>
 
         <button

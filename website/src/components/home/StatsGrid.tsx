@@ -24,7 +24,7 @@ function StatCard({
 }: {
   title: string;
   value: string;
-  tone?: "white" | "mint" | "gold" | "navy";
+  tone?: "white" | "mint" | "gold" | "navy" | "teal";
   compact?: boolean;
   subtitle?: string | null;
   onIconClick?: () => void;
@@ -37,7 +37,9 @@ function StatCard({
         ? "bg-[#F7EFDC]"
         : tone === "navy"
           ? "bg-[#DCE8F1]"
-          : "bg-white";
+          : tone === "teal"
+            ? "bg-[#C8E8ED]"
+            : "bg-white";
 
   const icon = onIconClick ? (
     <button
@@ -133,7 +135,7 @@ export function StatsGrid({
   type Item = {
     title: string;
     value: string;
-    tone: "white" | "mint" | "gold" | "navy";
+    tone: "white" | "mint" | "gold" | "navy" | "teal";
     subtitle?: string | null;
     onIconClick?: () => void;
     iconButtonLabel?: string;
@@ -152,12 +154,12 @@ export function StatsGrid({
             value: money(
               stats.investor_total_with_interest ?? stats.financed_amounts,
             ),
-            tone: "mint",
+            tone: "teal",
           },
           {
             title: "مستحقاتك هذا الشهر",
             value: money(dueValue),
-            tone: "gold",
+            tone: "mint",
             subtitle: investorDueSubtitle,
             onIconClick: onPickInvestorDueMonth,
             iconButtonLabel: "اختيار شهر",
@@ -165,7 +167,7 @@ export function StatsGrid({
           {
             title: "المبالغ المستلمة (كل العقود)",
             value: money(stats.investor_paid_amount ?? stats.paid_amounts),
-            tone: "mint",
+            tone: "teal",
           },
           {
             title: "المبالغ المتبقية (كل العقود)",
@@ -185,7 +187,7 @@ export function StatsGrid({
             {
               title: "عدد الخطط",
               value: `${stats.total_customers}`,
-              tone: "mint",
+              tone: "teal",
             },
             {
               title: "مستحقات التجار هذا الشهر",
@@ -211,7 +213,7 @@ export function StatsGrid({
             {
               title: "عدد العقود الاستثمارية",
               value: `${stats.investments_count ?? 0}`,
-              tone: "mint",
+              tone: "teal",
             },
             {
               title: "مستحقات المستثمرين هذا الشهر",
@@ -267,6 +269,46 @@ export function StatsGrid({
     </div>
   );
 
+  if (variant === "admin") {
+    const merchants = items.slice(0, 4);
+    const investors = items.slice(4);
+    return (
+      <div className={`${compact ? "" : "mx-4 mt-4"} space-y-4`}>
+        <section className="space-y-2">
+          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
+            إحصائيات التجار
+          </h3>
+          {renderCards(
+            merchants,
+            compact
+              ? "grid grid-cols-1 gap-2"
+              : "grid grid-cols-2 gap-2 sm:grid-cols-4",
+          )}
+        </section>
+        <section className="space-y-2">
+          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
+            إحصائيات المستثمرين
+          </h3>
+          {renderCards(
+            investors,
+            compact
+              ? "grid grid-cols-1 gap-2"
+              : "grid grid-cols-1 gap-2 sm:grid-cols-3",
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  if (variant === "investor" && !compact) {
+    return (
+      <div className="mx-4 mt-4 space-y-2">
+        {renderCards(items.slice(0, 3), "grid grid-cols-1 gap-2 sm:grid-cols-3")}
+        {renderCards(items.slice(3), "grid grid-cols-1 gap-2 sm:grid-cols-2")}
+      </div>
+    );
+  }
+
   if (compact) {
     return (
       <div className="grid grid-cols-1 gap-2">
@@ -282,33 +324,6 @@ export function StatsGrid({
             compact
           />
         ))}
-      </div>
-    );
-  }
-
-  if (variant === "admin") {
-    const merchants = items.slice(0, 4);
-    const investors = items.slice(4);
-    return (
-      <div className="mx-4 mt-4 space-y-4">
-        <section className="space-y-2">
-          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
-            إحصائيات التجار
-          </h3>
-          {renderCards(
-            merchants,
-            "grid grid-cols-2 gap-2 sm:grid-cols-4",
-          )}
-        </section>
-        <section className="space-y-2">
-          <h3 className="text-[14px] font-extrabold text-[var(--basic)]">
-            إحصائيات المستثمرين
-          </h3>
-          {renderCards(
-            investors,
-            "grid grid-cols-1 gap-2 sm:grid-cols-3",
-          )}
-        </section>
       </div>
     );
   }

@@ -34,9 +34,25 @@ export function formatDate(value: Date): string {
 
 export function formatDateString(value?: string | null): string {
   if (!value) return "—";
+  // Prefer calendar date part to avoid timezone day-shift vs Flutter.
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return formatDate(d);
+}
+
+/** yyyy-MM-dd — مطابق formatDate في Flutter لجدول العقود. */
+export function formatIsoDate(value?: string | null): string {
+  if (!value) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 /** تاريخ القسط الأخير الثابت في جدول الخطة. */

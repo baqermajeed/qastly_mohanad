@@ -57,6 +57,7 @@ export function AdminHome({ user, onLogout }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addInvestorOpen, setAddInvestorOpen] = useState(false);
+  const [editInvestor, setEditInvestor] = useState<Investor | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [merchantDetailId, setMerchantDetailId] = useState<string | null>(null);
   const [investorDetailId, setInvestorDetailId] = useState<string | null>(null);
@@ -261,7 +262,7 @@ export function AdminHome({ user, onLogout }: Props) {
       : tab === "investors"
         ? "المستثمرون"
         : tab === "pending"
-          ? "طلبات بانتظار الموافقة"
+          ? "طلبات خطط بانتظار الموافقة"
           : "زبائن التجار";
 
   return (
@@ -423,6 +424,7 @@ export function AdminHome({ user, onLogout }: Props) {
                   investor={inv}
                   index={i + 1}
                   onOpen={(investor) => setInvestorDetailId(investor.id)}
+                  onEdit={(investor) => setEditInvestor(investor)}
                 />
               ))
             : null}
@@ -490,6 +492,13 @@ export function AdminHome({ user, onLogout }: Props) {
         user={user}
         stats={stats}
         variant="admin"
+        adminMonthSubtitle={adminMonthSubtitle}
+        onPickAdminMonth={() => {
+          const el = monthPickerRef.current;
+          if (!el) return;
+          if (typeof el.showPicker === "function") el.showPicker();
+          else el.click();
+        }}
         onClose={() => setMenuOpen(false)}
         onLogout={onLogout}
       />
@@ -501,9 +510,17 @@ export function AdminHome({ user, onLogout }: Props) {
       />
 
       <AddInvestorSheet
-        open={addInvestorOpen}
-        onClose={() => setAddInvestorOpen(false)}
-        onSaved={() => void refreshAll()}
+        open={addInvestorOpen || Boolean(editInvestor)}
+        investor={editInvestor}
+        onClose={() => {
+          setAddInvestorOpen(false);
+          setEditInvestor(null);
+        }}
+        onSaved={() => {
+          setAddInvestorOpen(false);
+          setEditInvestor(null);
+          void refreshAll();
+        }}
       />
 
       <MerchantDetailSheet

@@ -52,6 +52,7 @@ export function InvestorDetailSheet({
   const [addInvestmentOpen, setAddInvestmentOpen] = useState(false);
   const [settleOpen, setSettleOpen] = useState(false);
   const [settleAmount, setSettleAmount] = useState("");
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   async function load(id: string) {
     setLoading(true);
@@ -91,11 +92,18 @@ export function InvestorDetailSheet({
     }
     setBusy(true);
     setError(null);
+    setSuccessMsg(null);
     try {
       const updated = await confirmInvestorDues(investorId, value);
       setInvestor(updated);
       setSettleOpen(false);
       await load(investorId);
+      const remaining = updated.due_this_month_amount;
+      setSuccessMsg(
+        remaining > 0.01
+          ? `تم تسديد ${money(value)} د.ع — المتبقي ${money(remaining)} د.ع`
+          : "تم تسديد المستحقات بالكامل",
+      );
       onUpdated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "تعذر تسديد المستحقات");
@@ -127,7 +135,7 @@ export function InvestorDetailSheet({
             </h3>
             <div className="mt-0.5 truncate text-[12px] font-semibold text-[var(--basic)]/55">
               {investor
-                ? `${investor.phone || `@${investor.username}`}`
+                ? `${investor.phone || investor.username}`
                 : "—"}
             </div>
           </div>
@@ -163,9 +171,18 @@ export function InvestorDetailSheet({
           <div className="py-10 text-center text-sm font-bold text-[var(--soft)]">
             جاري التحميل...
           </div>
-        ) : error ? (
+        ) : error && !investor ? (
           <div className="rounded-2xl bg-[#FDECEC] p-4 text-center text-sm font-bold text-[var(--late)]">
             {error}
+            {investorId ? (
+              <button
+                type="button"
+                className="mt-3 block w-full text-[var(--soft)]"
+                onClick={() => void load(investorId)}
+              >
+                إعادة المحاولة
+              </button>
+            ) : null}
           </div>
         ) : !investor ? (
           <div className="rounded-2xl bg-white p-6 text-center text-sm font-bold text-[var(--basic)]/50">
@@ -201,13 +218,50 @@ export function InvestorDetailSheet({
               ))}
             </div>
 
-            <div className="mb-3 rounded-[16px] bg-gradient-to-bl from-[#064E6A] to-[#069BAF] p-4 text-white">
-              <div className="text-[12px] font-semibold text-white/80">
-                مستحقاته هذا الشهر
+            {successMsg ? (
+              <div className="mb-3 rounded-2xl bg-[#E7F7EF] px-3 py-2 text-center text-[12px] font-bold text-[#0E8A61]">
+                {successMsg}
               </div>
-              <div className="mt-1 text-[24px] font-extrabold leading-none">
-                {money(due)}
+            ) : null}
+            {error ? (
+              <div className="mb-3 rounded-2xl bg-[#FDECEC] px-3 py-2 text-center text-[12px] font-bold text-[var(--late)]">
+                {error}
               </div>
+            ) : null}
+
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-[16px] bg-gradient-to-bl from-[#064E6A] to-[#069BAF] p-4 text-white">
+              <div>
+                <div className="text-[12px] font-semibold text-white/80">
+                  مستحقاته هذا الشهر
+                </div>
+                <div className="mt-1 text-[24px] font-extrabold leading-none">
+                  {money(due)}
+                </div>
+              </div>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden
+                className="opacity-90"
+              >
+                <path
+                  d="M3 8.5h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-10Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                />
+                <path
+                  d="M3 8.5 5.2 4.8A2 2 0 0 1 6.9 4h10.2a2 2 0 0 1 1.7.8L21 8.5"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                />
+                <path
+                  d="M12 14.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                />
+              </svg>
             </div>
 
             {isAdmin ? (
@@ -216,6 +270,7 @@ export function InvestorDetailSheet({
                 className="mb-4 h-11 w-full rounded-xl bg-[#0E8A61] text-[14px] font-extrabold text-white disabled:opacity-50"
                 disabled={busy || due <= 0.01}
                 onClick={() => {
+                  setSuccessMsg(null);
                   setSettleAmount(
                     due === Math.round(due) ? String(due) : due.toFixed(2),
                   );
