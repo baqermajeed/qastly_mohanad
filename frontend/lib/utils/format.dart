@@ -11,6 +11,22 @@ DateTime firstDueDate(DateTime registration) {
   return DateTime(registration.year, registration.month + 1, 1);
 }
 
+DateTime addMonths(DateTime start, int months) {
+  final index = start.month - 1 + months;
+  final year = start.year + index ~/ 12;
+  final month = index % 12 + 1;
+  return DateTime(year, month, 1);
+}
+
+/// تاريخ القسط الأخير في جدول الخطة (ثابت): القسط رقم [monthsCount].
+DateTime? lastDueDate({
+  required DateTime? firstDue,
+  required int monthsCount,
+}) {
+  if (firstDue == null || monthsCount <= 0) return null;
+  return addMonths(firstDue, monthsCount - 1);
+}
+
 String formatDayMonth(DateTime value) =>
     DateFormat('dd/MM/yyyy').format(value);
 

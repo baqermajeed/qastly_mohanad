@@ -706,7 +706,8 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
 
   Widget _planRow(Customer c) {
     final firstDue = c.firstDueDate;
-    final lastDue = c.lastPaymentDate;
+    final lastDue = c.lastPaymentDate ??
+        lastDueDate(firstDue: c.firstDueDate, monthsCount: c.monthsCount);
     return Row(
       children: [
         Expanded(

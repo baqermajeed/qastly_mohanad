@@ -185,9 +185,11 @@ class Customer {
       nextDueDate: json['next_due_date'] == null
           ? null
           : DateTime.parse(json['next_due_date'] as String),
-      lastPaymentDate: json['last_payment_date'] == null
-          ? null
-          : DateTime.parse(json['last_payment_date'] as String),
+      lastPaymentDate: () {
+        final raw = json['last_due_date'] ?? json['last_payment_date'];
+        if (raw == null) return null;
+        return DateTime.parse(raw as String);
+      }(),
       status: statusFromString(json['status'] as String),
       whatsappUrl: json['whatsapp_url'] as String,
       payments: paymentsJson

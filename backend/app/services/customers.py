@@ -140,6 +140,7 @@ async def _serialize_customer(
         "payments_count": count,
         "first_due_date": first_due,
         "next_due_date": next_due,
+        "last_due_date": last_due,
         "last_payment_date": last_due,
         "status": customer_status,
         "whatsapp_url": whatsapp_url(doc["phone"]),

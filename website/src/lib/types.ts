@@ -54,6 +54,7 @@ export type Customer = {
   payments_count?: number;
   first_due_date?: string | null;
   next_due_date?: string | null;
+  last_due_date?: string | null;
   last_payment_date?: string | null;
   status: CustomerStatus;
   whatsapp_url: string;

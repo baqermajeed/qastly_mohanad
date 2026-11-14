@@ -9,6 +9,7 @@ import {
   updateCustomer,
 } from "@/lib/api";
 import {
+  computeLastDueDate,
   formatDateString,
   iraqiGovernorates,
   money,
@@ -145,9 +146,11 @@ export function CustomerDetailSheet({
   const firstDue = customer?.first_due_date
     ? formatDateString(customer.first_due_date)
     : "—";
-  const lastDue = customer?.last_payment_date
-    ? formatDateString(customer.last_payment_date)
-    : "—";
+  const lastDueRaw =
+    customer?.last_due_date ??
+    customer?.last_payment_date ??
+    computeLastDueDate(customer?.first_due_date, customer?.months_count);
+  const lastDue = lastDueRaw ? formatDateString(lastDueRaw) : "—";
 
   return (
     <>

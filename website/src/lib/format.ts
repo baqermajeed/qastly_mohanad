@@ -39,6 +39,20 @@ export function formatDateString(value?: string | null): string {
   return formatDate(d);
 }
 
+/** تاريخ القسط الأخير الثابت في جدول الخطة. */
+export function computeLastDueDate(
+  firstDue?: string | null,
+  monthsCount?: number | null,
+): string | null {
+  if (!firstDue || !monthsCount || monthsCount <= 0) return null;
+  const start = new Date(firstDue);
+  if (Number.isNaN(start.getTime())) return null;
+  const index = start.getUTCMonth() + (monthsCount - 1);
+  const year = start.getUTCFullYear() + Math.floor(index / 12);
+  const month = index % 12;
+  return `${year}-${String(month + 1).padStart(2, "0")}-01`;
+}
+
 export function paymentMethodLabel(method?: string): string {
   switch (method) {
     case "card":

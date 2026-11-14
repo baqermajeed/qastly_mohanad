@@ -105,7 +105,8 @@ class CustomerOut(BaseModel):
     payments_count: int
     first_due_date: date
     next_due_date: date | None = None
-    last_payment_date: date | None = None  # تاريخ القسط الأخير في جدول الخطة (ثابت)
+    last_due_date: date | None = None  # تاريخ القسط الأخير في جدول الخطة (ثابت)
+    last_payment_date: date | None = None  # مرادف لـ last_due_date للتوافق
     status: CustomerStatus
     whatsapp_url: str
     created_at: datetime
