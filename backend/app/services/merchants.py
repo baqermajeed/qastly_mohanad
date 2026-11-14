@@ -17,7 +17,7 @@ from app.schemas.merchant import (
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments
-from app.services.plan import month_key
+from app.services.plan import as_date, month_key
 
 
 def _oid(value: str) -> ObjectId:
@@ -171,6 +171,8 @@ async def _merchant_stats(
 async def dashboard_due_this_month(
     db: AsyncIOMotorDatabase,
     user: UserOut,
+    *,
+    month: date | None = None,
 ) -> tuple[float, int]:
     """المبالغ الواجب تسديدها للتاجر.
 
@@ -179,35 +181,79 @@ async def dashboard_due_this_month(
     - لا تُقسَّم ولا تُؤجَّل ليوم 1؛ تُحتسب فور الاعتماد.
     - يستثنى pending/rejected/inactive.
     - المستحق = مجموع الممول − ما سُدّد (مع دعم التسديد الجزئي).
-    """
-    if user.role == "merchant":
-        oid = _oid(user.id)
-        doc = await db.users.find_one({"_id": oid})
-        stats = await _merchant_stats(
-            db,
-            oid,
-            created_at=(doc or {}).get("created_at"),
-        )
-        return (
-            float(stats["due_this_month_amount"]),
-            int(stats["due_this_month_count"]),
-        )
 
-    total = 0.0
-    count = 0
-    cursor = db.users.find({"role": "merchant"})
-    async for merchant in cursor:
-        stats = await _merchant_stats(
-            db,
-            merchant["_id"],
-            created_at=merchant.get("created_at"),
-        )
-        amount = float(stats["due_this_month_amount"])
-        if amount <= 0.01:
+    عند تمرير month غير الشهر الحالي (للمدير):
+    مستحقات خطط ذلك الشهر = ممول الخطط المسجّلة فيه − مسدّدات year_month.
+    """
+    today = date.today()
+    current = date(today.year, today.month, 1)
+    target = date((month or today).year, (month or today).month, 1)
+
+    if user.role == "merchant" or target == current:
+        if user.role == "merchant":
+            oid = _oid(user.id)
+            doc = await db.users.find_one({"_id": oid})
+            stats = await _merchant_stats(
+                db,
+                oid,
+                created_at=(doc or {}).get("created_at"),
+            )
+            return (
+                float(stats["due_this_month_amount"]),
+                int(stats["due_this_month_count"]),
+            )
+
+        total = 0.0
+        count = 0
+        cursor = db.users.find({"role": "merchant"})
+        async for merchant in cursor:
+            stats = await _merchant_stats(
+                db,
+                merchant["_id"],
+                created_at=merchant.get("created_at"),
+            )
+            amount = float(stats["due_this_month_amount"])
+            if amount <= 0.01:
+                continue
+            total += amount
+            count += int(stats["due_this_month_count"])
+        return round(total, 2), count
+
+    key = month_key(target)
+    customers = await db.customers.find(
+        {
+            "status": {
+                "$nin": [
+                    CustomerStatus.pending.value,
+                    CustomerStatus.rejected.value,
+                    CustomerStatus.inactive.value,
+                ]
+            }
+        }
+    ).to_list(None)
+    entitlement = 0.0
+    due_count = 0
+    for doc in customers:
+        reg = doc.get("registration_date")
+        if reg is None:
             continue
-        total += amount
-        count += int(stats["due_this_month_count"])
-    return round(total, 2), count
+        reg_d = as_date(reg)
+        if date(reg_d.year, reg_d.month, 1) != target:
+            continue
+        amount = _customer_financed_due(doc)
+        if amount <= 0:
+            continue
+        entitlement += amount
+        due_count += 1
+
+    settled_pipe = [
+        {"$match": {"year_month": key}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]
+    settled_result = await db.merchant_settlements.aggregate(settled_pipe).to_list(1)
+    settled = float(settled_result[0]["total"]) if settled_result else 0.0
+    outstanding = round(max(entitlement - settled, 0.0), 2)
+    return outstanding, due_count if outstanding > 0.01 else 0
 
 
 async def serialize_merchant(db: AsyncIOMotorDatabase, doc: dict) -> MerchantOut:

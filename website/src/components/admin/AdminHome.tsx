@@ -61,6 +61,11 @@ export function AdminHome({ user, onLogout }: Props) {
   const [merchantDetailId, setMerchantDetailId] = useState<string | null>(null);
   const [investorDetailId, setInvestorDetailId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [statsMonth, setStatsMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const monthPickerRef = useRef<HTMLInputElement | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreRef = useRef(false);
@@ -169,7 +174,7 @@ export function AdminHome({ user, onLogout }: Props) {
     setError(null);
     try {
       const [dash] = await Promise.all([
-        getDashboard(),
+        getDashboard({ month: statsMonth }),
         fetchTable(1, false),
       ]);
       setStats(dash.stats);
@@ -178,11 +183,18 @@ export function AdminHome({ user, onLogout }: Props) {
       setInitialLoading(false);
       setRefreshing(false);
     }
-  }, [fetchTable]);
+  }, [fetchTable, statsMonth]);
 
   useEffect(() => {
     void refreshAll();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [refreshAll]);
+
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const adminMonthSubtitle =
+    statsMonth === currentMonth
+      ? null
+      : `${statsMonth.slice(5)}/${statsMonth.slice(0, 4)}`;
 
   useEffect(() => {
     if (!hasLoadedOnce.current) return;
@@ -297,7 +309,30 @@ export function AdminHome({ user, onLogout }: Props) {
         ))}
       </section>
 
-      <StatsGrid stats={stats} variant="admin" />
+      <input
+        ref={monthPickerRef}
+        type="month"
+        className="sr-only"
+        value={statsMonth}
+        onChange={(e) => {
+          if (!e.target.value) return;
+          setStatsMonth(e.target.value);
+        }}
+      />
+      <StatsGrid
+        stats={stats}
+        variant="admin"
+        adminMonthSubtitle={adminMonthSubtitle}
+        onPickAdminMonth={() => {
+          const el = monthPickerRef.current;
+          if (!el) return;
+          if (typeof el.showPicker === "function") {
+            el.showPicker();
+          } else {
+            el.click();
+          }
+        }}
+      />
 
       <section className="mx-4 mt-5">
         <div className="mb-3 flex items-center gap-2">

@@ -224,7 +224,11 @@ async def get_investor(db: AsyncIOMotorDatabase, investor_id: str) -> InvestorOu
     return await serialize_investor(db, doc)
 
 
-async def dashboard_investor_stats(db: AsyncIOMotorDatabase) -> dict:
+async def dashboard_investor_stats(
+    db: AsyncIOMotorDatabase,
+    *,
+    month: date | None = None,
+) -> dict:
     """إحصائيات مجمّعة للمستثمرين والعقود — للوحة المدير."""
     await apply_due_payouts(db)
     investors_count = int(await db.users.count_documents({"role": "investor"}))
@@ -237,7 +241,7 @@ async def dashboard_investor_stats(db: AsyncIOMotorDatabase) -> dict:
     total_with_interest = 0.0
     due_this_month = 0.0
     today = date.today()
-    current = date(today.year, today.month, 1)
+    current = date((month or today).year, (month or today).month, 1)
 
     for doc in investments:
         principal_total += float(doc.get("principal") or 0)
@@ -260,7 +264,7 @@ async def dashboard_investor_stats(db: AsyncIOMotorDatabase) -> dict:
         pay_result = await db.investor_payouts.aggregate(pay_pipe).to_list(1)
         paid = float(pay_result[0]["total"]) if pay_result else 0.0
 
-    # استبعاد أقساط هذا الشهر المدفوعة مسبقاً من المستحق الظاهر
+    # استبعاد أقساط الشهر المحدد المدفوعة مسبقاً من المستحق الظاهر
     if investment_ids:
         paid_this_month_cursor = db.investor_payouts.find(
             {

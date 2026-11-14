@@ -531,8 +531,31 @@ async def delete_customer(
     await db.payments.delete_many({"customer_id": oid})
 
 
-async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardResponse:
+def _parse_month_param(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        year_s, month_s = value.split("-", 1)
+        year = int(year_s)
+        month = int(month_s)
+        if month < 1 or month > 12:
+            raise ValueError
+        return date(year, month, 1)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="صيغة الشهر غير صالحة — استخدم YYYY-MM",
+        ) from exc
+
+
+async def dashboard(
+    db: AsyncIOMotorDatabase,
+    user: UserOut,
+    *,
+    month: str | None = None,
+) -> DashboardResponse:
     await apply_due_payments(db)
+    selected_month = _parse_month_param(month) or date.today().replace(day=1)
     customers = await _collect_customers(db, user)
     merchants = (
         int(await db.users.count_documents({"role": "merchant"}))
@@ -556,13 +579,12 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
     remaining_amounts = round(sum(c.remaining_amount for c in counted), 2)
     bank_amounts = round(sum(c.bank_amount for c in counted), 2)
     platform_amounts = round(sum(c.platform_amount for c in counted), 2)
-    today = date.today()
     platform_amounts_this_month = round(
         sum(
             c.platform_amount
             for c in counted
-            if c.registration_date.year == today.year
-            and c.registration_date.month == today.month
+            if c.registration_date.year == selected_month.year
+            and c.registration_date.month == selected_month.month
         ),
         2,
     )
@@ -570,10 +592,14 @@ async def dashboard(db: AsyncIOMotorDatabase, user: UserOut) -> DashboardRespons
         sum(getattr(c, "investor_amount", 0) or 0 for c in counted), 2
     )
     financed_amounts = round(sum(c.financed_amount for c in counted), 2)
-    due_amount, due_count = await dashboard_due_this_month(db, user)
+    due_amount, due_count = await dashboard_due_this_month(
+        db, user, month=selected_month
+    )
 
     investor_stats = (
-        await dashboard_investor_stats(db) if user.role == "admin" else {}
+        await dashboard_investor_stats(db, month=selected_month)
+        if user.role == "admin"
+        else {}
     )
 
     return DashboardResponse(

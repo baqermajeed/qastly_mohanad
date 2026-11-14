@@ -9,6 +9,8 @@ type Props = {
   investorDueAmount?: number | null;
   investorDueSubtitle?: string | null;
   onPickInvestorDueMonth?: () => void;
+  adminMonthSubtitle?: string | null;
+  onPickAdminMonth?: () => void;
 };
 
 function StatCard({
@@ -108,6 +110,8 @@ export function StatsGrid({
   investorDueAmount = null,
   investorDueSubtitle = null,
   onPickInvestorDueMonth,
+  adminMonthSubtitle = null,
+  onPickAdminMonth,
 }: Props) {
   if (!stats) {
     return (
@@ -187,11 +191,17 @@ export function StatsGrid({
               title: "مستحقات التجار هذا الشهر",
               value: money(stats.due_this_month_amount ?? 0),
               tone: "gold",
+              subtitle: adminMonthSubtitle,
+              onIconClick: onPickAdminMonth,
+              iconButtonLabel: "اختيار شهر",
             },
             {
               title: "أرباح المنصة هذا الشهر",
               value: money(stats.platform_amounts_this_month ?? 0),
               tone: "mint",
+              subtitle: adminMonthSubtitle,
+              onIconClick: onPickAdminMonth,
+              iconButtonLabel: "اختيار شهر",
             },
             {
               title: "عدد المستثمرين",
@@ -207,6 +217,9 @@ export function StatsGrid({
               title: "مستحقات المستثمرين هذا الشهر",
               value: money(stats.investor_due_this_month_amount ?? 0),
               tone: "gold",
+              subtitle: adminMonthSubtitle,
+              onIconClick: onPickAdminMonth,
+              iconButtonLabel: "اختيار شهر",
             },
           ]
         : [

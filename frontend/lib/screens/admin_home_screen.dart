@@ -50,6 +50,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   String _query = '';
   SidebarNav _active = SidebarNav.home;
   Timer? _searchDebounce;
+  late DateTime _statsMonth;
+
+  DateTime get _currentMonth {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month);
+  }
+
+  bool get _isCurrentStatsMonth =>
+      _statsMonth.year == _currentMonth.year &&
+      _statsMonth.month == _currentMonth.month;
+
+  String? get _statsMonthSubtitle => _isCurrentStatsMonth
+      ? null
+      : '${_statsMonth.month.toString().padLeft(2, '0')}/${_statsMonth.year}';
 
   PageResult<dynamic> get _activePage => switch (_active) {
         SidebarNav.customers => _customers,
@@ -63,7 +77,25 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _statsMonth = _currentMonth;
     _load();
+  }
+
+  Future<void> _pickStatsMonth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _statsMonth,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(DateTime.now().year + 8, 12, 31),
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'اختر الشهر',
+      cancelText: 'إلغاء',
+      confirmText: 'تم',
+      fieldLabelText: 'الشهر',
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _statsMonth = DateTime(picked.year, picked.month));
+    await _load(silent: true);
   }
 
   @override
@@ -82,7 +114,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       });
     }
     try {
-      final statsFuture = widget.api.getDashboard();
+      final statsFuture = widget.api.getDashboard(month: _statsMonth);
       final tableFuture = _fetchActiveTable(page: 1, append: false);
       final data = await statsFuture;
       await tableFuture;
@@ -482,16 +514,24 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             Expanded(
               child: DashboardStatCard(
                 title: 'مستحقات التجار هذا الشهر',
+                subtitle: _statsMonthSubtitle,
                 value: money(stats.dueThisMonthAmount),
                 background: AppTheme.cardGold,
+                actionIcon: Icons.calendar_month_rounded,
+                actionTooltip: 'اختيار شهر',
+                onIconTap: _pickStatsMonth,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: DashboardStatCard(
                 title: 'أرباح المنصة هذا الشهر',
+                subtitle: _statsMonthSubtitle,
                 value: money(stats.platformAmountsThisMonth),
                 background: AppTheme.cardMint,
+                actionIcon: Icons.calendar_month_rounded,
+                actionTooltip: 'اختيار شهر',
+                onIconTap: _pickStatsMonth,
               ),
             ),
           ],
@@ -523,8 +563,12 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             Expanded(
               child: DashboardStatCard(
                 title: 'مستحقات المستثمرين هذا الشهر',
+                subtitle: _statsMonthSubtitle,
                 value: money(stats.investorDueThisMonthAmount),
                 background: AppTheme.cardGold,
+                actionIcon: Icons.calendar_month_rounded,
+                actionTooltip: 'اختيار شهر',
+                onIconTap: _pickStatsMonth,
               ),
             ),
           ],

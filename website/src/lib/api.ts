@@ -137,8 +137,11 @@ export async function logout() {
   }
 }
 
-export async function getDashboard() {
-  return request<DashboardResponse>("/api/dashboard");
+export async function getDashboard(params?: { month?: string }) {
+  const q = new URLSearchParams();
+  if (params?.month) q.set("month", params.month);
+  const suffix = q.toString() ? `?${q.toString()}` : "";
+  return request<DashboardResponse>(`/api/dashboard${suffix}`);
 }
 
 export type CustomersQuery = {

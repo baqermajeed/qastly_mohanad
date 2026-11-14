@@ -87,10 +87,15 @@ class ApiService {
     _decode(res);
   }
 
-  Future<DashboardData> getDashboard() async {
+  Future<DashboardData> getDashboard({DateTime? month}) async {
+    final params = <String, String>{
+      if (month != null)
+        'month':
+            '${month.year}-${month.month.toString().padLeft(2, '0')}',
+    };
     final res = await _send(
       () => _client.get(
-        Uri.parse('$_base/api/dashboard'),
+        Uri.parse('$_base/api/dashboard').replace(queryParameters: params),
         headers: _jsonHeaders,
       ),
     );
