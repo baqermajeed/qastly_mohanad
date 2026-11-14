@@ -112,6 +112,7 @@ class Customer {
     this.paymentsCount = 0,
     this.firstDueDate,
     this.nextDueDate,
+    this.lastPaymentDate,
     this.payments = const [],
   });
 
@@ -140,6 +141,7 @@ class Customer {
   final int paymentsCount;
   final DateTime? firstDueDate;
   final DateTime? nextDueDate;
+  final DateTime? lastPaymentDate;
   final CustomerStatus status;
   final String whatsappUrl;
   final List<PaymentRecord> payments;
@@ -183,6 +185,9 @@ class Customer {
       nextDueDate: json['next_due_date'] == null
           ? null
           : DateTime.parse(json['next_due_date'] as String),
+      lastPaymentDate: json['last_payment_date'] == null
+          ? null
+          : DateTime.parse(json['last_payment_date'] as String),
       status: statusFromString(json['status'] as String),
       whatsappUrl: json['whatsapp_url'] as String,
       payments: paymentsJson

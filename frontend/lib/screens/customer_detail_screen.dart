@@ -70,8 +70,6 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
   String? _error;
 
   static const _headerBlue = Color(0xFFD7EEF8);
-  static const _fieldBorder = Color(0xFFD5E8F2);
-  static const _sectionBg = Color(0xFFF7FBFD);
   static const _actionBlue = Color(0xFF1E88C8);
   static const _titleBlue = Color(0xFF0B3A5C);
 
@@ -399,8 +397,6 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
           _statsRow(c),
           const SizedBox(height: 14),
           _planRow(c),
-          const SizedBox(height: 14),
-          _paymentsSection(c),
         ],
       ),
     );
@@ -711,6 +707,7 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
   Widget _planRow(Customer c) {
     final firstDue = c.firstDueDate;
     final nextDue = c.nextDueDate;
+    final lastPay = c.lastPaymentDate;
     return Row(
       children: [
         Expanded(
@@ -734,6 +731,16 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
             icon: Icons.event_available_outlined,
             background: const Color(0xFFEAF6FB),
             iconColor: const Color(0xFF069BAF),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _statCard(
+            label: 'تاريخ آخر دفعة',
+            value: lastPay == null ? 'لا توجد' : _dateFmt.format(lastPay),
+            icon: Icons.history_outlined,
+            background: const Color(0xFFF7EFDC),
+            iconColor: const Color(0xFFC38508),
           ),
         ),
       ],
@@ -760,16 +767,6 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
             icon: Icons.pie_chart_outline,
             background: const Color(0xFFF3ECFB),
             iconColor: const Color(0xFF7B4DB8),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _statCard(
-            label: 'المبلغ المتبقي',
-            value: '${money(c.remainingAmount)} د.ع',
-            icon: Icons.payments_outlined,
-            background: const Color(0xFFFDECEC),
-            iconColor: const Color(0xFFE53935),
           ),
         ),
         const SizedBox(width: 10),
@@ -850,253 +847,6 @@ class _CustomerDetailDialogState extends State<CustomerDetailDialog> {
     );
   }
 
-  Widget _paymentsSection(Customer c) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE3F0F7)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F002E45),
-            blurRadius: 16,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-            child: Row(
-              children: [
-                Text(
-                  'سجل الدفعات',
-                  style: AppTheme.text(
-                    color: _titleBlue,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.receipt_long_outlined,
-                  color: _actionBlue,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-          _tableHeader(),
-          if (c.payments.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
-              child: Center(
-                child: Text(
-                  c.firstDueDate == null
-                      ? 'لا توجد دفعات بعد'
-                      : 'لا توجد دفعات بعد — أول دفعة يوم ${_dateFmt.format(c.firstDueDate!)}',
-                  style: AppTheme.text(
-                    color: AppTheme.basic.withValues(alpha: 0.5),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            )
-          else
-            ...List.generate(c.payments.length, (i) {
-              final p = c.payments[i];
-              return _paymentRow(
-                customer: c,
-                index: i + 1,
-                payment: p,
-                striped: i.isOdd,
-              );
-            }),
-          const SizedBox(height: 8),
-        ],
-      ),
-    );
-  }
-
-  Widget _tableHeader() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: _sectionBg,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          _headerCell('#', flex: 1, icon: null),
-          _headerCell('تاريخ التسديد', flex: 3, icon: Icons.calendar_today_outlined),
-          _headerCell('مبلغ الدفعة', flex: 3, icon: Icons.payments_outlined),
-          _headerCell('طريقة الدفع', flex: 3, icon: Icons.credit_card_outlined),
-          _headerCell('الملاحظة', flex: 5, icon: Icons.description_outlined),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerCell(String label, {required int flex, IconData? icon}) {
-    return Expanded(
-      flex: flex,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: AppTheme.basic.withValues(alpha: 0.45)),
-            const SizedBox(width: 6),
-          ],
-          Flexible(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.text(
-                color: AppTheme.basic.withValues(alpha: 0.65),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _paymentRow({
-    required Customer customer,
-    required int index,
-    required PaymentRecord payment,
-    required bool striped,
-  }) {
-    final rawNote = (payment.note == null || payment.note!.trim().isEmpty)
-        ? ''
-        : payment.note!.trim();
-    final cleanedNote = rawNote
-        .replaceAll('دفعة شهرية تلقائية', 'دفعة شهرية')
-        .replaceAll('تلقائية', '')
-        .replaceAll('تلقائي', '')
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
-    final note = cleanedNote.isEmpty ? '—' : cleanedNote;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: striped ? const Color(0xFFF3FAFD) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _fieldBorder.withValues(alpha: 0.7)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 1,
-            child: Text(
-              index.toString().padLeft(2, '0'),
-              textAlign: TextAlign.center,
-              style: AppTheme.text(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              _dateFmt.format(payment.paymentDate),
-              textAlign: TextAlign.center,
-              style: AppTheme.text(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              '${money(payment.amount)} د.ع',
-              textAlign: TextAlign.center,
-              style: AppTheme.text(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Center(child: _methodChip(method: payment.method)),
-          ),
-          Expanded(
-            flex: 5,
-            child: Text(
-              note,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.text(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: note == '—'
-                    ? AppTheme.basic.withValues(alpha: 0.4)
-                    : AppTheme.basic,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _methodChip({required String method}) {
-    final isCard = method == 'card';
-    final isAuto = method == 'auto';
-    final bg = isAuto
-        ? const Color(0xFFEAF6FB)
-        : isCard
-            ? const Color(0xFFE8F3FB)
-            : const Color(0xFFE7F7EF);
-    final fg = isAuto
-        ? const Color(0xFF069BAF)
-        : isCard
-            ? const Color(0xFF1E88C8)
-            : const Color(0xFF0E8A61);
-    final label = isAuto ? 'نظام' : isCard ? 'بطاقة' : 'نقداً';
-    final icon = isAuto
-        ? Icons.autorenew_rounded
-        : isCard
-            ? Icons.credit_card_rounded
-            : Icons.payments_rounded;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: fg),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: AppTheme.text(
-              color: fg,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _EditCustomerInfoDialog extends StatefulWidget {

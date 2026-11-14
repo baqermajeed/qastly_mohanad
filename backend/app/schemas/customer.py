@@ -105,6 +105,7 @@ class CustomerOut(BaseModel):
     payments_count: int
     first_due_date: date
     next_due_date: date | None = None
+    last_payment_date: date | None = None
     status: CustomerStatus
     whatsapp_url: str
     created_at: datetime

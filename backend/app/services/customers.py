@@ -46,6 +46,20 @@ async def _payments_count(db: AsyncIOMotorDatabase, customer_id: ObjectId) -> in
     return int(await db.payments.count_documents({"customer_id": customer_id}))
 
 
+async def _last_payment_date(
+    db: AsyncIOMotorDatabase,
+    customer_id: ObjectId,
+) -> date | None:
+    doc = await db.payments.find_one(
+        {"customer_id": customer_id},
+        sort=[("payment_date", -1), ("due_date", -1), ("installment_no", -1)],
+    )
+    if not doc:
+        return None
+    raw = doc.get("payment_date") or doc.get("due_date")
+    return as_date(raw) if raw is not None else None
+
+
 async def _merchant_name(db: AsyncIOMotorDatabase, merchant_id: ObjectId | None) -> str | None:
     if merchant_id is None:
         return None
@@ -83,6 +97,7 @@ async def _serialize_customer(
 
     paid = await _paid_amount(db, doc["_id"])
     count = await _payments_count(db, doc["_id"])
+    last_payment = await _last_payment_date(db, doc["_id"])
     financed = float(doc.get("financed_amount") or 0)
     months = int(doc["months_count"])
     month_pay = float(doc.get("monthly_payment") or 0)
@@ -138,6 +153,7 @@ async def _serialize_customer(
         "payments_count": count,
         "first_due_date": first_due,
         "next_due_date": next_due,
+        "last_payment_date": last_payment,
         "status": customer_status,
         "whatsapp_url": whatsapp_url(doc["phone"]),
         "created_at": doc.get("created_at", datetime.now(timezone.utc)),

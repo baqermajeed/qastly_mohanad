@@ -9,11 +9,9 @@ import {
   updateCustomer,
 } from "@/lib/api";
 import {
-  cleanPaymentNote,
   formatDateString,
   iraqiGovernorates,
   money,
-  paymentMethodLabel,
   statusLabel,
 } from "@/lib/format";
 import type { Customer } from "@/lib/types";
@@ -144,8 +142,10 @@ export function CustomerDetailSheet({
     }
   }
 
-  const payments = customer?.payments ?? [];
   const firstDue = formatDateString(customer?.first_due_date);
+  const lastPayment = customer?.last_payment_date
+    ? formatDateString(customer.last_payment_date)
+    : "لا توجد";
 
   return (
     <>
@@ -332,11 +332,6 @@ export function CustomerDetailSheet({
                     tone="purple"
                   />
                   <MoneyTile
-                    label="المبلغ المتبقي"
-                    value={`${money(customer.remaining_amount)} د.ع`}
-                    tone="red"
-                  />
-                  <MoneyTile
                     label="الأشهر المتبقية"
                     value={`${customer.remaining_months} شهر`}
                     tone="cyan"
@@ -365,48 +360,12 @@ export function CustomerDetailSheet({
                     }
                     tone="blue"
                   />
+                  <MoneyTile
+                    label="تاريخ آخر دفعة"
+                    value={lastPayment}
+                    tone="cyan"
+                  />
                 </div>
-              </section>
-
-              <section className="cd-card">
-                <div className="cd-payments-head">
-                  <h5 className="cd-section-title mb-0">سجل الدفعات</h5>
-                  <span className="cd-count">{payments.length}</span>
-                </div>
-
-                {payments.length === 0 ? (
-                  <p className="cd-empty">
-                    {customer.first_due_date
-                      ? `لا توجد دفعات بعد — أول دفعة يوم ${firstDue}`
-                      : "لا توجد دفعات بعد"}
-                  </p>
-                ) : (
-                  <div className="cd-payments">
-                    {payments.map((p, i) => (
-                      <div key={p.id} className="cd-payment">
-                        <div className="cd-payment-top">
-                          <span className="cd-payment-no">#{i + 1}</span>
-                          <span className="cd-method">
-                            {paymentMethodLabel(p.method)}
-                          </span>
-                        </div>
-                        <div className="cd-payment-grid">
-                          <div>
-                            <span>تاريخ التسديد</span>
-                            <strong>{formatDateString(p.payment_date)}</strong>
-                          </div>
-                          <div>
-                            <span>مبلغ الدفعة</span>
-                            <strong>{money(p.amount)} د.ع</strong>
-                          </div>
-                        </div>
-                        <div className="cd-payment-note">
-                          {cleanPaymentNote(p.note)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </section>
             </>
           ) : null}
