@@ -17,7 +17,7 @@ from app.schemas.merchant import (
 from app.schemas.pagination import Page
 from app.services.auth import hash_password
 from app.services.auto_payments import apply_due_payments
-from app.services.plan import as_date, month_key
+from app.services.plan import month_key
 
 
 def _oid(value: str) -> ObjectId:
@@ -34,23 +34,16 @@ def _customer_eligible_for_merchant_payout(doc: dict) -> bool:
     )
 
 
-def _customer_lump_payout(doc: dict) -> tuple[date | None, float]:
-    """دفعة نقدية واحدة للتاجر = المبلغ الممول، مستحقة يوم 1 من شهر first_due."""
+def _customer_financed_due(doc: dict) -> float:
+    """مستحق التاجر الفوري من الزبون = المبلغ بعد النسب (نقداً فور الاعتماد)."""
     if not _customer_eligible_for_merchant_payout(doc):
-        return None, 0.0
-    first_due_raw = doc.get("first_due_date")
-    if first_due_raw is None:
-        return None, 0.0
-    first_due = as_date(first_due_raw)
-    due_month = date(first_due.year, first_due.month, 1)
+        return 0.0
     monthly = float(doc.get("monthly_payment") or 0)
     months = int(doc.get("months_count") or 0)
     financed = float(doc.get("financed_amount") or 0)
     if financed <= 0 and monthly > 0 and months > 0:
         financed = round(monthly * months, 2)
-    if financed <= 0:
-        return due_month, 0.0
-    return due_month, round(financed, 2)
+    return round(financed, 2) if financed > 0 else 0.0
 
 
 async def _total_settled(
@@ -73,48 +66,34 @@ async def _outstanding_dues(
     today: date | None = None,
     created_at: date | datetime | None = None,
 ) -> dict:
-    """مستحقات التاجر = (مبالغ الخطط المستحقة) − (إجمالي ما سُدّد).
+    """مستحقات التاجر الفورية = Σ(المبلغ بعد النسب) − Σ(ما سُدّد).
 
-    لكل زبون معتمد: المبلغ الممول يُستحق يوم 1 من الشهر التالي للاعتماد.
+    تُحتسب فور اعتماد الخطة (ليست مؤجّلة ليوم 1).
     التسديد يمكن أن يكون جزئياً؛ المتبقي يبقى مستحقاً وتُضاف فوقه
-    مبالغ الخطط الجديدة عند استحقاقها.
+    مبالغ الخطط الجديدة المعتمدة.
     """
-    today = today or date.today()
-    current = date(today.year, today.month, 1)
-
-    previous_entitlement = 0.0
-    current_entitlement = 0.0
+    del today, created_at
+    entitlement = 0.0
     due_count = 0
-
     for doc in customers:
-        due_month, amount = _customer_lump_payout(doc)
-        if due_month is None or amount <= 0:
+        amount = _customer_financed_due(doc)
+        if amount <= 0:
             continue
-        if due_month > current:
-            continue
+        entitlement += amount
         due_count += 1
-        if due_month == current:
-            current_entitlement += amount
-        else:
-            previous_entitlement += amount
 
-    previous_entitlement = round(previous_entitlement, 2)
-    current_entitlement = round(current_entitlement, 2)
-    entitlement = round(previous_entitlement + current_entitlement, 2)
+    entitlement = round(entitlement, 2)
     total_settled = await _total_settled(db, merchant_id)
-
-    settled_to_prev = min(total_settled, previous_entitlement)
-    carried = round(max(previous_entitlement - settled_to_prev, 0.0), 2)
-    settled_left = round(max(total_settled - settled_to_prev, 0.0), 2)
-    current_unpaid = round(max(current_entitlement - settled_left, 0.0), 2)
-    outstanding = round(carried + current_unpaid, 2)
+    outstanding = round(max(entitlement - total_settled, 0.0), 2)
+    # المتبقي بعد تسديد جزئي يُعرض كمرحّل إن وُجد تسديد سابق ولم يُصفَّر الرصيد
+    carried = outstanding if total_settled > 0.01 and outstanding > 0.01 else 0.0
     confirmed = entitlement <= 0.01 or outstanding <= 0.01
 
     return {
         "due_this_month_amount": outstanding,
         "due_this_month_count": due_count if outstanding > 0.01 else 0,
         "due_confirmed_this_month": confirmed,
-        "due_carried_amount": carried,
+        "due_carried_amount": round(carried, 2),
     }
 
 
@@ -193,15 +172,13 @@ async def dashboard_due_this_month(
     db: AsyncIOMotorDatabase,
     user: UserOut,
 ) -> tuple[float, int]:
-    """المبالغ الواجب تسديدها للتاجر هذا الشهر.
+    """المبالغ الواجب تسديدها للتاجر.
 
     الحساب من الباكند:
-    - لكل زبون معتمد: دفعة نقدية واحدة = المبلغ الممول (بعد نسب المصرف/
-      المنصة/المستثمر)، مستحقة يوم 1 من الشهر التالي لاعتماد الخطة.
-    - لا تُقسَّم مستحقات التاجر على أشهر خطة الزبون.
+    - لكل زبون معتمد: مستحق فوري نقدي = المبلغ بعد النسب.
+    - لا تُقسَّم ولا تُؤجَّل ليوم 1؛ تُحتسب فور الاعتماد.
     - يستثنى pending/rejected/inactive.
-    - التاجر: مجموع دفعاته النقدية غير المؤكدة + عدد الخطط المستحقة.
-    - المدير: مجموع المستحقات غير المسددة لكل التجار.
+    - المستحق = مجموع الممول − ما سُدّد (مع دعم التسديد الجزئي).
     """
     if user.role == "merchant":
         oid = _oid(user.id)

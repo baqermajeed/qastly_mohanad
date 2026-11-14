@@ -62,7 +62,7 @@ class PromoBanner extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 _FrostedText(
-                  text: 'أضف زبائنك وخطط أقساطهم، ومستحقاتك تُصرف نقداً يوم 1',
+                  text: 'أضف زبائنك وخطط أقساطهم، ومستحقاتك نقدية فورية بعد النسب',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   lineHeight: 1.4,

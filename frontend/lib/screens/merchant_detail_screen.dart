@@ -727,8 +727,8 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
     final hasAmount = _merchant.dueThisMonthAmount > 0;
     final carried = _merchant.dueCarriedAmount;
     final label = carried > 0
-        ? 'مستحقات التاجر (${_merchant.dueThisMonthCount} زبون) • متبقي من تسديد سابق ${money(carried)} د.ع'
-        : 'مستحقات التاجر (${_merchant.dueThisMonthCount} زبون) — المتبقي بعد آخر تسديد + الخطط الجديدة';
+        ? 'مستحقات فورية (${_merchant.dueThisMonthCount} زبون) • متبقي بعد تسديد جزئي ${money(carried)} د.ع'
+        : 'مستحقات فورية نقداً (${_merchant.dueThisMonthCount} زبون) = المبالغ بعد النسب − المسدّد';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -952,7 +952,7 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
           _headerCell('الهاتف', flex: 3),
           _headerCell('المبلغ الكلي', flex: 3),
           _headerCell('مستحق التاجر', flex: 3),
-          _headerCell('صرف التاجر', flex: 3),
+          _headerCell('استحقاق التاجر', flex: 3),
           _headerCell('أشهر الزبون', flex: 2),
           _headerCell('قسط الزبون', flex: 3),
           _headerCell('المتبقي على الزبون', flex: 3),
@@ -1064,9 +1064,10 @@ class _MerchantDetailDialogState extends State<MerchantDetailDialog> {
               Expanded(
                 flex: 3,
                 child: Text(
-                  customer.firstDueDate == null
+                  customer.status == CustomerStatus.pending ||
+                          customer.status == CustomerStatus.rejected
                       ? '—'
-                      : _dateFmt.format(customer.firstDueDate!),
+                      : 'فوري',
                   textAlign: TextAlign.center,
                   style: AppTheme.text(fontSize: 13, fontWeight: FontWeight.w700),
                 ),

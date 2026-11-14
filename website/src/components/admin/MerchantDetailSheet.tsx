@@ -341,8 +341,8 @@ export function MerchantDetailSheet({
               <section className="cd-card" style={{ background: "#FFF4E5" }}>
                 <h5 className="cd-section-title" style={{ color: "#C38508" }}>
                   {carried > 0
-                    ? `مستحقات التاجر (${merchant.due_this_month_count} زبون) • متبقي من تسديد سابق ${money(carried)} د.ع`
-                    : `مستحقات التاجر (${merchant.due_this_month_count} زبون) — المتبقي بعد آخر تسديد + الخطط الجديدة`}
+                    ? `مستحقات فورية (${merchant.due_this_month_count} زبون) • متبقي بعد تسديد جزئي ${money(carried)} د.ع`
+                    : `مستحقات فورية نقداً (${merchant.due_this_month_count} زبون) = المبالغ بعد النسب − المسدّد`}
                 </h5>
                 <div className="mb-3 text-[18px] font-extrabold text-[#0B3A5C]">
                   {money(dueAmount)} د.ع
@@ -410,14 +410,12 @@ export function MerchantDetailSheet({
                           </div>
                           <div>
                             <div className="font-semibold text-[var(--basic)]/45">
-                              صرف التاجر
+                              استحقاق التاجر
                             </div>
                             <div className="font-extrabold text-[#0B3A5C]">
-                              {c.first_due_date
-                                ? new Date(c.first_due_date).toLocaleDateString(
-                                    "ar-IQ",
-                                  )
-                                : "—"}
+                              {c.status === "pending" || c.status === "rejected"
+                                ? "—"
+                                : "فوري"}
                             </div>
                           </div>
                           <div>
